@@ -10,6 +10,11 @@ function normalizeUrl(url) {
   return 'https://' + trimmed
 }
 
+function truncateText(text, maxLength = 60) {
+  if (!text) return ''
+  return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1)}…`
+}
+
 function openDataUrl(dataUrl) {
   try {
     const [meta, b64] = dataUrl.split(',')
@@ -148,7 +153,7 @@ function KPICard({ label, value, active, onClick, icon }) {
 
 function NewOrderForm({ onCreated, onToast }) {
   const [form, setForm] = useState({
-    requester_name: '', project_name: '', product_name: '', product_url: '',
+    requester_name: '', project_name: '', product_name: '', product_url: '', company_name: '',
     product_description: '', quantity: 1, needed_by_date: ''
   })
   const [msg, setMsg] = useState('')
@@ -170,7 +175,10 @@ function NewOrderForm({ onCreated, onToast }) {
       const res = await fetch(`${API}/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: localStorage.getItem('token') },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          ...payload,
+          company_name: form.company_name
+        })
       })
       if (res.ok) {
         setMsg('Order created successfully.')
@@ -208,16 +216,25 @@ function NewOrderForm({ onCreated, onToast }) {
             <input required value={form.product_name} onChange={e=>update('product_name', e.target.value)} />
           </div>
           <div className="form-field">
-            <label>Product URL</label>
-            <input value={form.product_url} onChange={e=>update('product_url', e.target.value)} />
+            <label>Product URL <span className="req">*</span></label>
+            <input type="url" required placeholder="https://example.com/product" value={form.product_url} onChange={e=>update('product_url', e.target.value)} />
           </div>
         </div>
-        <div className="form-row form-row-description">
+        <div className="form-row form-row-company-desc">
+          <div className="form-field">
+            <label>Company Name <span className="req">*</span></label>
+            <select required value={form.company_name} onChange={e=>update('company_name', e.target.value)}>
+              <option value="">Choose company</option>
+              <option value="Psitech">Psitech</option>
+              <option value="Eulerian Bots">Eulerian Bots</option>
+              <option value="Convis">Convis</option>
+            </select>
+          </div>
           <div className="form-field quantity-field">
             <label>Quantity <span className="req">*</span></label>
             <input type="number" min="1" required value={form.quantity} onChange={e=>update('quantity', e.target.value)} />
           </div>
-          <div className="form-field">
+          <div className="form-field description-field">
             <label>Product Description</label>
             <textarea
               className="auto-grow-textarea"
@@ -248,7 +265,43 @@ function NewOrderForm({ onCreated, onToast }) {
   )
 }
 
-function TrackingTable({ orders, role, onUpdate, onDelete, filter, onToast }) {
+function OrderDetailPage({ order, onClose }) {
+  if (!order) return null
+  return (
+    <div className="detail-page">
+      <div className="detail-card card">
+        <div className="detail-header">
+          <div>
+            <p className="section-kicker">Order Details</p>
+            <h2>{order.product_name || 'Order #' + order.id}</h2>
+          </div>
+          <button type="button" className="btn-secondary" onClick={onClose}>Back</button>
+        </div>
+        <div className="detail-grid">
+          <div><strong>Requester</strong><div>{order.requester_name}</div></div>
+          <div><strong>Company</strong><div>{order.company_name || '-'}</div></div>
+          <div><strong>Product</strong><div>{order.product_name}</div></div>
+          <div><strong>Product URL</strong><div>{order.product_url ? <a className="link-cell" href={normalizeUrl(order.product_url)} target="_blank" rel="noreferrer">{truncateText(order.product_url, 60)}</a> : '-'}</div></div>
+          <div><strong>Quantity</strong><div>{order.quantity}</div></div>
+          <div><strong>Project</strong><div>{order.project_name || '-'}</div></div>
+          <div><strong>Tracking URL</strong><div>{order.tracking_url ? <a className="link-cell" href={normalizeUrl(order.tracking_url)} target="_blank" rel="noreferrer">Track</a> : '-'}</div></div>
+          <div><strong>Status</strong><div>{order.order_status}</div></div>
+          <div><strong>Payment</strong><div>{order.payment_status}</div></div>
+          <div><strong>Order Date</strong><div>{order.order_date || '-'}</div></div>
+          <div><strong>Needed By</strong><div>{order.needed_by_date || '-'}</div></div>
+          <div><strong>Delivery Date</strong><div>{order.delivery_date || '-'}</div></div>
+          <div><strong>Archived</strong><div>{order.archived ? 'Yes' : 'No'}</div></div>
+          <div><strong>Description</strong><div>{order.product_description || '-'}</div></div>
+          <div><strong>Notes</strong><div>{order.notes || '-'}</div></div>
+          <div><strong>Invoice File</strong><div>{order.invoice_filename || '-'}</div></div>
+          <div><strong>Invoice</strong><div>{order.invoice_filename ? <button type="button" className="btn-secondary" onClick={()=>openDataUrl(order.invoice_data)}>Download</button> : '-'}</div></div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TrackingTable({ orders, role, onUpdate, onDelete, filter, onToast, onView }) {
   const [summaryFilter, setSummaryFilter] = useState(filter || null)
   const activeFilter = summaryFilter
   const dateSortedOrders = [...orders].sort((a, b) => {
@@ -366,137 +419,39 @@ function TrackingTable({ orders, role, onUpdate, onDelete, filter, onToast }) {
           <button type="button" className={`summary-archive ${activeFilter === 'Archive' ? 'active' : ''}`} onClick={()=>applySummaryFilter('Archive')}>{statusCounts.Archive} Archive</button>
         </div>
       </div>
-      <div className="table-wrap">
-        <table className="tracking-table">
+      <div className="table-wrap">        <table className="tracking-table">
           <thead>
             <tr>
-              <th className="col-serial">No.</th><th className="col-product">Product</th><th className="col-link">URL</th><th className="col-desc">Description</th><th className="col-qty">Qty</th>
-              <th className="col-project">Project</th><th className="col-date">Order Date</th><th className="col-date">Needed By</th><th className="col-requester">Requester</th>
-              <th className="col-tracking">Tracking URL</th><th className="col-status">Order Status</th><th className="col-payment">Payment</th><th className="col-date">Delivery Date</th><th className="col-invoice">Invoice</th><th className="col-notes">Notes</th><th className="col-actions">Action</th>
+              <th className="col-serial">Sr. no</th><th className="col-requester">Requester</th><th className="col-company">Company Name</th><th className="col-product">Product Name</th><th className="col-url">Product URL</th><th className="col-qty">Qty</th>
+              <th className="col-project">Project Name</th><th className="col-tracking">Tracking URL</th><th className="col-actions">View</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((o, idx) => {
-              const d = getDraft(o)
-              // Admins editing the row, or a blank optional field, get an input automatically.
-              const showInput = (val) => editingId === o.id || (role === 'admin' && !val)
-              return (
+            {filtered.map((o, idx) => (
               <tr key={o.id}>
-                <td className="serial-cell">{idx+1}</td>
-                <td className="product-cell">
-                  {editingId === o.id
-                    ? <input className="table-input" value={d.product_name} onChange={e=>setField(o.id,'product_name',e.target.value)} />
-                    : <div className="product-name">{o.product_name}</div>}
+                <td className="serial-cell">{idx + 1}</td>
+                <td>{o.requester_name || '-'}</td>
+                <td>{o.company_name || '-'}</td>
+                <td>{o.product_name || '-'}</td>
+                <td>
+                  {o.product_url
+                    ? <a className="table-link" href={normalizeUrl(o.product_url)} target="_blank" rel="noreferrer">Open</a>
+                    : <span className="muted">-</span>}
+                </td>
+                <td><span className="qty-pill">{o.quantity || '-'}</span></td>
+                <td>{o.project_name || '-'}</td>
+                <td>
+                  {o.tracking_url
+                    ? <a className="table-link" href={normalizeUrl(o.tracking_url)} target="_blank" rel="noreferrer">Track</a>
+                    : <span className="muted">-</span>}
                 </td>
                 <td>
-                  {showInput(o.product_url)
-                    ? <input className="table-input" value={d.product_url} onChange={e=>setField(o.id,'product_url',e.target.value)} placeholder="https://" />
-                    : (o.product_url ? <a className="table-link" href={normalizeUrl(o.product_url)} target="_blank" rel="noreferrer">View</a> : <span className="muted">-</span>)}
-                </td>
-                <td className="desc-cell">
-                  {showInput(o.product_description)
-                    ? <textarea className="table-input" value={d.product_description} onChange={e=>setField(o.id,'product_description',e.target.value)} placeholder="Add description..." rows="2" />
-                    : o.product_description}
-                </td>
-                <td>
-                  {editingId === o.id
-                    ? <input type="number" min="1" className="table-input qty-input" value={d.quantity} onChange={e=>setField(o.id,'quantity', parseInt(e.target.value) || 1)} />
-                    : <span className="qty-pill">{o.quantity}</span>}
-                </td>
-                <td className="project-cell">
-                  {showInput(o.project_name)
-                    ? <input className="table-input" value={d.project_name} onChange={e=>setField(o.id,'project_name',e.target.value)} placeholder="Project..." />
-                    : (o.project_name || '-')}
-                </td>
-                <td className="date-cell">{o.order_date}</td>
-                <td className="date-cell">
-                  {showInput(o.needed_by_date)
-                    ? <input type="date" className="table-input date-input" value={dmyToInputDate(d.needed_by_date)} onChange={e=>setField(o.id,'needed_by_date',inputDateToDMY(e.target.value))} />
-                    : (o.needed_by_date || '-')}
-                </td>
-                <td className="requester-cell">
-                  {editingId === o.id
-                    ? <input className="table-input" value={d.requester_name} onChange={e=>setField(o.id,'requester_name',e.target.value)} />
-                    : o.requester_name}
-                </td>
-                <td>
-                  {role === 'admin' ? (
-                    <div className="tracking-cell">
-                      <input className="table-input tracking-input" value={d.tracking_url} onChange={e=>setField(o.id,'tracking_url',e.target.value)} placeholder="https://" />
-                      {d.tracking_url && (
-                        <a className="open-link-btn" href={normalizeUrl(d.tracking_url)} target="_blank" rel="noreferrer" title="Open tracking link" aria-label="Open tracking link" onClick={()=>onToast('Opening tracking link.')}>
-                          {Icons.external}
-                        </a>
-                      )}
-                    </div>
-                  ) : (o.tracking_url ? <a className="table-link" href={normalizeUrl(o.tracking_url)} target="_blank" rel="noreferrer">Track</a> : <span className="muted">-</span>)}
-                </td>
-                <td>
-                  {role === 'admin' ? (
-                    <select className={`status-select status-${d.order_status.replace(' ','-').toLowerCase()}`} value={d.order_status} onChange={e=>setField(o.id,'order_status',e.target.value)}>
-                      <option>Pending</option><option>In Process</option><option>Delivered</option>
-                    </select>
-                  ) : <span className={`badge status-${o.order_status.replace(' ','-').toLowerCase()}`}>{o.order_status}</span>}
-                </td>
-                <td>
-                  {role === 'admin' ? (
-                    <select className={`payment-select payment-${d.payment_status.toLowerCase()}`} value={d.payment_status} onChange={e=>setField(o.id,'payment_status',e.target.value)}>
-                      <option>Unpaid</option><option>Paid</option>
-                    </select>
-                  ) : <span className={`badge payment-${o.payment_status.toLowerCase()}`}>{o.payment_status}</span>}
-                </td>
-                <td>
-                  {role === 'admin' ? (
-                    <input
-                      className="table-input date-input"
-                      type="date"
-                      value={dmyToInputDate(d.delivery_date)}
-                      onChange={e=>setField(o.id,'delivery_date',inputDateToDMY(e.target.value))}
-                    />
-                  ) : <span className="date-cell">{o.delivery_date || '-'}</span>}
-                </td>
-                <td>
-                  {role === 'admin' ? (
-                    <div className="invoice-cell">
-                      {d.invoice_filename ? (
-                        <button type="button" className="file-chip" onClick={()=>{ openDataUrl(d.invoice_data); onToast('Opening invoice.') }}>{Icons.file} {d.invoice_filename}</button>
-                      ) : (
-                        <label className="upload-box">
-                          <input type="file" accept=".pdf,.doc,.docx,image/*" onChange={e=>handleFile(o,e)} hidden />
-                          <span className="upload-placeholder">{Icons.upload} Upload</span>
-                        </label>
-                      )}
-                      {d.invoice_filename && (
-                        <label className="change-file" title="Replace file">
-                          <input type="file" accept=".pdf,.doc,.docx,image/*" onChange={e=>handleFile(o,e)} hidden />
-                          {Icons.upload}
-                        </label>
-                      )}
-                    </div>
-                  ) : (
-                    o.invoice_filename ? <button type="button" className="file-chip" onClick={()=>{ openDataUrl(o.invoice_data); onToast('Opening invoice.') }}>{Icons.file} {o.invoice_filename}</button> : '—'
-                  )}
-                </td>
-                <td>
-                  <textarea className="table-input notes-input" value={d.notes} onChange={e=>setField(o.id,'notes',e.target.value)} placeholder="Add note..." rows="3" />
-                </td>
-                <td>
-                  <div className="row-actions">
-                    {role === 'admin' && (
-                      editingId === o.id
-                        ? <button className="icon-btn" title="Cancel edit" onClick={()=>cancelEdit(o.id)}>{Icons.close}</button>
-                        : <button className="icon-btn edit-btn" title="Edit details" onClick={()=>setEditingId(o.id)}>{Icons.edit}</button>
-                    )}
-                    <button className="icon-btn save-btn" title="Save" onClick={()=>save(o)}>{Icons.save}</button>
-                    {role === 'admin' && (
-                      <button className="icon-btn delete-btn" title="Delete" onClick={()=>setDeleteTarget(o)}>{Icons.trash}</button>
-                    )}
-                  </div>
+                  <button type="button" className="btn-secondary view-btn" onClick={()=>onView(o)}>View</button>
                 </td>
               </tr>
-            )})}
+            ))}
             {filtered.length === 0 && (
-              <tr><td colSpan="16" className="empty-row">No orders found.</td></tr>
+              <tr><td colSpan="9" className="empty-row">No orders found.</td></tr>
             )}
           </tbody>
         </table>
@@ -514,9 +469,10 @@ export default function App() {
   })
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light')
   const [orders, setOrders] = useState([])
-  const [view, setView] = useState('dashboard') // dashboard | tracking
+  const [view, setView] = useState('dashboard') // dashboard | newOrder | detail
   const [kpiFilter, setKpiFilter] = useState(null)
   const [toast, setToast] = useState('')
+  const [selectedOrder, setSelectedOrder] = useState(null)
 
   useEffect(() => {
     document.body.setAttribute('data-theme', theme)
@@ -596,8 +552,33 @@ export default function App() {
 
   function goKPI(filter) {
     setKpiFilter(filter)
-    setView('tracking')
+    setView('dashboard')
     showToast(filter ? `Showing ${filter} orders.` : 'Showing all purchase orders.')
+  }
+
+  function showNewOrder() {
+    setSelectedOrder(null)
+    setView('newOrder')
+    showToast('Opening new order form.')
+  }
+
+  function showDashboard() {
+    setSelectedOrder(null)
+    setView('dashboard')
+    setKpiFilter(null)
+    showToast('Showing dashboard.')
+  }
+
+  function openOrderDetail(order) {
+    setSelectedOrder(order)
+    setView('detail')
+    showToast('Viewing order details.')
+  }
+
+  function closeOrderDetail() {
+    setSelectedOrder(null)
+    setView('dashboard')
+    showToast('Back to dashboard.')
   }
 
   return (
@@ -616,8 +597,11 @@ export default function App() {
           })} title="Toggle theme" aria-label="Toggle theme">
             {theme === 'dark' ? Icons.sun : Icons.moon}
           </button>
-          <button className="btn-secondary" onClick={()=>{ setView('tracking'); setKpiFilter(null); showToast('Showing purchase orders.') }}>Purchase Orders</button>
-          {view !== 'dashboard' && <button className="icon-btn nav-icon-btn" onClick={()=>{ setView('dashboard'); showToast('Dashboard opened.') }} title="Dashboard" aria-label="Dashboard">{Icons.dashboard}</button>}
+          {view === 'dashboard' ? (
+            <button className="btn-secondary" onClick={showNewOrder}>New Order</button>
+          ) : (
+            <button className="btn-secondary" onClick={showDashboard}>Dashboard</button>
+          )}
           <button className="icon-btn nav-icon-btn logout-btn" onClick={logout} title="Logout" aria-label="Logout">{Icons.logout}</button>
         </div>
       </nav>
@@ -631,11 +615,14 @@ export default function App() {
               <KPICard label="In Process Orders" value={counts['In Process']} icon={Icons.process} active={kpiFilter==='In Process'} onClick={()=>goKPI('In Process')} />
               <KPICard label="Delivered Orders" value={counts.Delivered} icon={Icons.delivered} active={kpiFilter==='Delivered'} onClick={()=>goKPI('Delivered')} />
             </div>
-            <NewOrderForm onCreated={loadOrders} onToast={showToast} />
+            <TrackingTable orders={orders} role={role} onUpdate={updateOrder} onDelete={deleteOrder} filter={kpiFilter} onToast={showToast} onView={openOrderDetail} />
           </>
         )}
-        {view === 'tracking' && (
-          <TrackingTable orders={orders} role={role} onUpdate={updateOrder} onDelete={deleteOrder} filter={kpiFilter} onToast={showToast} />
+        {view === 'newOrder' && (
+          <NewOrderForm onCreated={loadOrders} onToast={showToast} />
+        )}
+        {view === 'detail' && selectedOrder && (
+          <OrderDetailPage order={selectedOrder} onClose={closeOrderDetail} />
         )}
       </main>
     </div>
