@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>PurchaseHub — User Guide</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: #1f2937;
+    font-size: 11pt;
+    line-height: 1.55;
+    margin: 0;
+  }
+  h1, h2, h3 { color: #1e3a8a; line-height: 1.25; }
+  h1 { font-size: 26pt; margin: 0 0 4px; }
+  h2 {
+    font-size: 16pt;
+    margin: 26px 0 8px;
+    padding-bottom: 5px;
+    border-bottom: 2px solid #3b82f6;
+    page-break-after: avoid;
+  }
+  h3 { font-size: 12.5pt; margin: 16px 0 4px; color: #2563eb; page-break-after: avoid; }
+  p { margin: 6px 0; }
+  ul, ol { margin: 6px 0 6px 0; padding-left: 22px; }
+  li { margin: 3px 0; }
+  code {
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 9.5pt;
+    color: #be123c;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 10pt; }
+  th, td { border: 1px solid #cbd5e1; padding: 6px 9px; text-align: left; vertical-align: top; }
+  th { background: #eff6ff; color: #1e3a8a; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .logo-row { display: flex; align-items: center; gap: 12px; }
+  .logo-row svg { width: 40px; height: 40px; }
+  .subtitle { color: #64748b; font-size: 12pt; margin: 2px 0 0; }
+  .meta { color: #94a3b8; font-size: 9.5pt; margin-top: 6px; }
+  .callout {
+    border-left: 4px solid #3b82f6;
+    background: #eff6ff;
+    padding: 8px 14px;
+    margin: 12px 0;
+    border-radius: 0 6px 6px 0;
+  }
+  .callout.warn { border-left-color: #f59e0b; background: #fffbeb; }
+  .callout.tip { border-left-color: #10b981; background: #ecfdf5; }
+  .role-pill {
+    display: inline-block; font-size: 9pt; font-weight: 600;
+    padding: 1px 8px; border-radius: 999px; color: #fff;
+  }
+  .pill-admin { background: #f59e0b; }
+  .pill-emp { background: #3b82f6; }
+  .cover { page-break-after: always; padding-top: 60px; }
+  .cover .big { font-size: 40pt; color: #1e3a8a; margin: 30px 0 0; }
+  .toc { page-break-after: always; }
+  .toc ol { font-size: 12pt; line-height: 2; }
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 18px 0; }
+  .step-num {
+    display: inline-block; width: 20px; height: 20px; line-height: 20px;
+    text-align: center; background: #3b82f6; color: #fff; border-radius: 50%;
+    font-size: 9pt; font-weight: 700; margin-right: 6px;
+  }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="logo-row">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>
+    </svg>
+    <div>
+      <h1>PurchaseHub</h1>
+      <p class="subtitle">Purchase Request &amp; Tracking System</p>
+    </div>
+  </div>
+  <p class="big">User Guide</p>
+  <p class="meta">
+    Application URL: <strong>https://purchase.psitech.co.in</strong><br/>
+    Document version 1.0 &nbsp;·&nbsp; June 2026
+  </p>
+  <div class="callout" style="margin-top:50px;">
+    This guide explains how to log in, create purchase requests, track their progress,
+    manage payments and invoices, and use the dashboard. It covers both the
+    <strong>Employee</strong> and <strong>Admin</strong> roles.
+  </div>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <h2 style="border:none;">Contents</h2>
+  <ol>
+    <li>What is PurchaseHub?</li>
+    <li>Roles &amp; access</li>
+    <li>Signing in</li>
+    <li>The dashboard at a glance</li>
+    <li>Creating a new purchase order</li>
+    <li>Viewing &amp; tracking orders</li>
+    <li>Admin: updating an order</li>
+    <li>Invoices</li>
+    <li>Archiving (deleting) orders</li>
+    <li>Switching light / dark theme</li>
+    <li>Signing out</li>
+    <li>Frequently asked questions</li>
+  </ol>
+</div>
+
+<!-- 1 -->
+<h2>1. What is PurchaseHub?</h2>
+<p>
+  PurchaseHub is a simple web tool for requesting and tracking purchases inside the organisation.
+  Employees raise purchase requests; an admin reviews them, places the order, records the payment
+  and delivery status, attaches the invoice, and marks each item as delivered. Everyone sees the
+  same live list, so there is no need to chase updates over chat or email.
+</p>
+<p>The screen updates automatically every few seconds, so any change an admin makes appears for everyone without refreshing the page.</p>
+
+<!-- 2 -->
+<h2>2. Roles &amp; access</h2>
+<p>There are two types of users:</p>
+<table>
+  <tr><th>Role</th><th>Can do</th><th>Cannot do</th></tr>
+  <tr>
+    <td><span class="role-pill pill-emp">Employee</span></td>
+    <td>Create new purchase orders; view all orders; add notes to any order.</td>
+    <td>Change status, payment, tracking link, delivery date, invoice; delete orders.</td>
+  </tr>
+  <tr>
+    <td><span class="role-pill pill-admin">Admin</span></td>
+    <td>Everything an employee can do <em>plus</em> update status, payment, tracking, delivery date, upload invoices, and archive (delete) orders.</td>
+    <td>—</td>
+  </tr>
+</table>
+<div class="callout warn">
+  <strong>Keep credentials private.</strong> Accounts are shared per role. Do not post the password
+  in public chats. Contact your administrator if you need access.
+</div>
+
+<!-- 3 -->
+<h2>3. Signing in</h2>
+<ol>
+  <li>Open <code>https://purchase.psitech.co.in</code> in your browser.</li>
+  <li>Enter your <strong>Username</strong> and <strong>Password</strong>.</li>
+  <li>Use the eye icon in the password box to show or hide what you typed.</li>
+  <li>Click <strong>Sign In</strong>.</li>
+</ol>
+<p>If the username or password is wrong, a red message appears. If you see “Cannot reach server,” the application may be temporarily down — try again shortly or contact your administrator.</p>
+
+<!-- 4 -->
+<h2>4. The dashboard at a glance</h2>
+<p>After signing in you land on the dashboard. The top of the screen shows four summary cards:</p>
+<table>
+  <tr><th>Card</th><th>Meaning</th></tr>
+  <tr><td><strong>New Orders</strong></td><td>Total number of active orders in the system.</td></tr>
+  <tr><td><strong>Pending Orders</strong></td><td>Orders raised but not yet being processed.</td></tr>
+  <tr><td><strong>In Process Orders</strong></td><td>Orders the admin has started working on / ordered.</td></tr>
+  <tr><td><strong>Delivered Orders</strong></td><td>Orders that have arrived.</td></tr>
+</table>
+<p>Click any card to jump straight to the order list filtered by that status. Below the cards is the <strong>New Purchase Order</strong> form.</p>
+
+<!-- 5 -->
+<h2>5. Creating a new purchase order</h2>
+<p>Anyone (employee or admin) can raise a request. On the dashboard, fill in the <strong>New Purchase Order</strong> form:</p>
+<table>
+  <tr><th>Field</th><th>Required?</th><th>What to enter</th></tr>
+  <tr><td>Requester Name</td><td>Yes</td><td>Your name (who needs the item).</td></tr>
+  <tr><td>Project Name</td><td>Yes</td><td>The project or department the purchase is for.</td></tr>
+  <tr><td>Product Name</td><td>Yes</td><td>What you want to buy.</td></tr>
+  <tr><td>Product URL</td><td>Optional</td><td>A link to the product page, if you have one.</td></tr>
+  <tr><td>Quantity</td><td>Yes</td><td>How many units (minimum 1).</td></tr>
+  <tr><td>Product Description</td><td>Optional</td><td>Specs, colour, size, or any notes for the buyer.</td></tr>
+  <tr><td>Needed By Date</td><td>Yes</td><td>The date you need it delivered by.</td></tr>
+</table>
+<p>Click <strong>Submit Order</strong>. A green <em>“Order created successfully.”</em> message confirms it was saved, and the form clears for the next entry. New orders always start as <strong>Pending</strong> and <strong>Unpaid</strong>.</p>
+<div class="callout tip">
+  <strong>Tip:</strong> You don’t need to refresh — the new order appears in the Purchase Orders list automatically.
+</div>
+
+<!-- 6 -->
+<h2>6. Viewing &amp; tracking orders</h2>
+<p>Click <strong>Purchase Orders</strong> in the top bar (or any dashboard card) to open the full list. Each row shows the product, quantity, project, requester, order date, the date it is needed by, current status, payment status, delivery date, invoice, and notes.</p>
+<h3>Filtering the list</h3>
+<p>Use the summary buttons above the table to filter:</p>
+<ul>
+  <li><strong>Total</strong> — all active orders.</li>
+  <li><strong>Pending / In Process / Delivered</strong> — only orders in that status.</li>
+  <li><strong>Archive</strong> — orders that have been deleted/archived (kept for reference).</li>
+</ul>
+<h3>Adding a note (everyone)</h3>
+<p>Any user can type into the <strong>Notes</strong> box on a row and click the <strong>Save</strong> (disk) icon in the Action column. Use notes for comments like “urgent,” “approved by manager,” or vendor remarks.</p>
+
+<!-- 7 -->
+<h2>7. Admin: updating an order <span class="role-pill pill-admin">Admin only</span></h2>
+<p>When signed in as Admin, the table rows become editable. For each order you can:</p>
+<ul>
+  <li><strong>Tracking URL</strong> — paste the courier/tracking link. A small open-link icon appears so you can open it in one click.</li>
+  <li><strong>Order Status</strong> — choose <em>Pending</em>, <em>In Process</em>, or <em>Delivered</em>.</li>
+  <li><strong>Payment</strong> — set <em>Unpaid</em> or <em>Paid</em>.</li>
+  <li><strong>Delivery Date</strong> — pick the date the item arrived.</li>
+  <li><strong>Invoice</strong> — upload the bill (see next section).</li>
+  <li><strong>Notes</strong> — add internal remarks.</li>
+</ul>
+<div class="callout">
+  <strong>Important:</strong> After changing anything in a row, click the <strong>Save</strong> (disk) icon
+  in the Action column to store it. A confirmation message appears. Unsaved edits are not kept.
+</div>
+
+<!-- 8 -->
+<h2>8. Invoices</h2>
+<p><span class="role-pill pill-admin">Admin</span> To attach a bill to an order:</p>
+<ol>
+  <li>In the order’s <strong>Invoice</strong> cell, click <strong>Upload</strong>.</li>
+  <li>Choose a file (PDF, Word document, or an image).</li>
+  <li>Click the <strong>Save</strong> icon on that row to store it.</li>
+</ol>
+<p>Once uploaded, the file name appears as a chip. <strong>Any user</strong> can click that chip to open and view the invoice. Use the small upload icon next to it to replace the file.</p>
+
+<!-- 9 -->
+<h2>9. Archiving (deleting) orders <span class="role-pill pill-admin">Admin only</span></h2>
+<p>To remove an order from the active list, click the <strong>trash</strong> icon in its Action column. A confirmation box appears — click <strong>Move to Archive</strong>. The order is not permanently destroyed; it moves to the <strong>Archive</strong> filter where it can still be viewed.</p>
+
+<!-- 10 -->
+<h2>10. Switching light / dark theme</h2>
+<p>Click the <strong>moon / sun</strong> icon in the top bar to switch between light and dark appearance. Your choice is remembered on your device for next time.</p>
+
+<!-- 11 -->
+<h2>11. Signing out</h2>
+<p>Click the <strong>logout</strong> icon (the arrow at the far right of the top bar) to sign out. You will be returned to the login screen. Always sign out on shared computers.</p>
+
+<!-- 12 -->
+<h2>12. Frequently asked questions</h2>
+<h3>I clicked Submit but got “Failed to create order.”</h3>
+<p>This usually means your session has expired. Sign out and sign back in, then try again. If it continues, contact your administrator.</p>
+
+<h3>I made a change as admin but it didn’t stick.</h3>
+<p>You must click the <strong>Save</strong> (disk) icon on that row after editing. Edits are not saved automatically.</p>
+
+<h3>Someone else placed an order — why don’t I see it?</h3>
+<p>You should: the list refreshes every few seconds. If not, reload the page or check your internet connection.</p>
+
+<h3>Can an employee change the status or delete an order?</h3>
+<p>No. Employees can create orders and add notes only. Status, payment, tracking, invoices, and deletion are admin actions.</p>
+
+<h3>Where do deleted orders go?</h3>
+<p>They move to the <strong>Archive</strong> filter and remain viewable; they are not permanently erased.</p>
+
+<hr/>
+<p class="meta">PurchaseHub — Purchase Request &amp; Tracking System · psitech.co.in</p>
+
+</body>
+</html>
