@@ -133,6 +133,8 @@ const Icons = {
   trash: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/><path d="M10 11v6M14 11v6"/></svg>,
   edit: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>,
   close: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>,
+  back: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>,
+  check: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg>,
   logout: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M21 19V5a2 2 0 00-2-2h-6"/></svg>,
   save: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>,
   upload: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>,
@@ -265,36 +267,140 @@ function NewOrderForm({ onCreated, onToast }) {
   )
 }
 
-function OrderDetailPage({ order, onClose }) {
+function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(order)
+  const [confirmDel, setConfirmDel] = useState(false)
+  useEffect(() => { setDraft(order); setEditing(false) }, [order])
   if (!order) return null
+  const isAdmin = role === 'admin'
+  const d = draft || order
+  function set(field, value) { setDraft(prev => ({ ...prev, [field]: value })) }
+
+  async function save() {
+    const ok = await onUpdate(order.id, {
+      requester_name: d.requester_name, company_name: d.company_name,
+      product_name: d.product_name, product_url: d.product_url,
+      quantity: parseInt(d.quantity) || 1, project_name: d.project_name,
+      tracking_url: d.tracking_url, order_status: d.order_status,
+      payment_status: d.payment_status, delivery_date: d.delivery_date,
+      needed_by_date: d.needed_by_date, product_description: d.product_description,
+      notes: d.notes, invoice_filename: d.invoice_filename, invoice_data: d.invoice_data
+    })
+    onToast(ok ? 'Order updated successfully.' : 'Could not update order.')
+    if (ok) setEditing(false)
+  }
+  function handleInvoice(e) {
+    const f = e.target.files[0]
+    if (!f) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      setDraft(prev => ({ ...prev, invoice_filename: f.name, invoice_data: reader.result }))
+      onToast('Invoice attached. Click Save to store it.')
+    }
+    reader.readAsDataURL(f)
+  }
+  async function doDelete() {
+    const ok = await onDelete(order.id)
+    onToast(ok ? 'Order moved to archive.' : 'Could not archive order.')
+    setConfirmDel(false)
+    if (ok) onClose()
+  }
+
+  // field renderers: show text when viewing, input when editing
+  const txt = (field) => editing
+    ? <input className="detail-input" value={d[field] || ''} onChange={e=>set(field, e.target.value)} />
+    : (d[field] || '-')
+  const num = (field) => editing
+    ? <input type="number" min="1" className="detail-input" value={d[field] || 1} onChange={e=>set(field, e.target.value)} />
+    : d[field]
+  const dateField = (field) => editing
+    ? <input type="date" className="detail-input" value={dmyToInputDate(d[field])} onChange={e=>set(field, inputDateToDMY(e.target.value))} />
+    : (d[field] || '-')
+  const link = (field) => editing
+    ? <input className="detail-input" value={d[field] || ''} placeholder="https://" onChange={e=>set(field, e.target.value)} />
+    : (d[field] ? <a className="link-cell" href={normalizeUrl(d[field])} target="_blank" rel="noreferrer">{truncateText(d[field], 60)}</a> : '-')
+
   return (
     <div className="detail-page">
       <div className="detail-card card">
+        {confirmDel && (
+          <div className="modal-backdrop" role="presentation">
+            <div className="confirm-dialog" role="dialog" aria-modal="true">
+              <h3>Delete Purchase Order?</h3>
+              <p>This will move <strong>{order.product_name}</strong> to Archive. You can still view it later.</p>
+              <div className="confirm-actions">
+                <button type="button" className="btn-ghost" onClick={()=>setConfirmDel(false)}>Cancel</button>
+                <button type="button" className="btn-danger" onClick={doDelete}>Move to Archive</button>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="detail-header">
           <div>
             <p className="section-kicker">Order Details</p>
             <h2>{order.product_name || 'Order #' + order.id}</h2>
           </div>
-          <button type="button" className="btn-secondary" onClick={onClose}>Back</button>
+          <div className="detail-actions">
+            {isAdmin && (editing
+              ? <>
+                  <button type="button" className="btn-primary detail-save btn-icon-text" onClick={save}>{Icons.check} Save</button>
+                  <button type="button" className="btn-secondary btn-icon-text" onClick={()=>{ setDraft(order); setEditing(false) }}>{Icons.close} Cancel</button>
+                </>
+              : <>
+                  <button type="button" className="btn-secondary btn-icon-text" onClick={()=>setEditing(true)}>{Icons.edit} Edit</button>
+                  <button type="button" className="btn-danger btn-icon-text" onClick={()=>setConfirmDel(true)}>{Icons.trash} Delete</button>
+                </>
+            )}
+            <button type="button" className="btn-secondary btn-icon-text" onClick={onClose}>{Icons.back} Back</button>
+          </div>
         </div>
         <div className="detail-grid">
-          <div><strong>Requester</strong><div>{order.requester_name}</div></div>
-          <div><strong>Company</strong><div>{order.company_name || '-'}</div></div>
-          <div><strong>Product</strong><div>{order.product_name}</div></div>
-          <div><strong>Product URL</strong><div>{order.product_url ? <a className="link-cell" href={normalizeUrl(order.product_url)} target="_blank" rel="noreferrer">{truncateText(order.product_url, 60)}</a> : '-'}</div></div>
-          <div><strong>Quantity</strong><div>{order.quantity}</div></div>
-          <div><strong>Project</strong><div>{order.project_name || '-'}</div></div>
-          <div><strong>Tracking URL</strong><div>{order.tracking_url ? <a className="link-cell" href={normalizeUrl(order.tracking_url)} target="_blank" rel="noreferrer">Track</a> : '-'}</div></div>
-          <div><strong>Status</strong><div>{order.order_status}</div></div>
-          <div><strong>Payment</strong><div>{order.payment_status}</div></div>
+          <div><strong>Requester</strong><div>{txt('requester_name')}</div></div>
+          <div><strong>Company</strong><div>{editing
+            ? <select className="detail-input" value={d.company_name || ''} onChange={e=>set('company_name', e.target.value)}>
+                <option value="">Choose company</option>
+                <option value="Psitech">Psitech</option>
+                <option value="Eulerian Bots">Eulerian Bots</option>
+                <option value="Convis">Convis</option>
+              </select>
+            : (d.company_name || '-')}</div></div>
+          <div><strong>Product</strong><div>{txt('product_name')}</div></div>
+          <div><strong>Product URL</strong><div>{link('product_url')}</div></div>
+          <div><strong>Quantity</strong><div>{num('quantity')}</div></div>
+          <div><strong>Project</strong><div>{txt('project_name')}</div></div>
+          <div><strong>Tracking URL</strong><div>{link('tracking_url')}</div></div>
+          <div><strong>Status</strong><div>{editing
+            ? <select className="detail-input" value={d.order_status} onChange={e=>set('order_status', e.target.value)}>
+                <option>Pending</option><option>In Process</option><option>Delivered</option>
+              </select>
+            : d.order_status}</div></div>
+          <div><strong>Payment</strong><div>{editing
+            ? <select className="detail-input" value={d.payment_status} onChange={e=>set('payment_status', e.target.value)}>
+                <option>Unpaid</option><option>Paid</option>
+              </select>
+            : d.payment_status}</div></div>
           <div><strong>Order Date</strong><div>{order.order_date || '-'}</div></div>
-          <div><strong>Needed By</strong><div>{order.needed_by_date || '-'}</div></div>
-          <div><strong>Delivery Date</strong><div>{order.delivery_date || '-'}</div></div>
+          <div><strong>Needed By</strong><div>{dateField('needed_by_date')}</div></div>
+          <div><strong>Delivery Date</strong><div>{dateField('delivery_date')}</div></div>
+          <div><strong>Description</strong><div>{editing
+            ? <textarea className="detail-input" rows="2" value={d.product_description || ''} onChange={e=>set('product_description', e.target.value)} />
+            : (d.product_description || '-')}</div></div>
+          <div><strong>Notes</strong><div>{editing
+            ? <textarea className="detail-input" rows="2" value={d.notes || ''} onChange={e=>set('notes', e.target.value)} />
+            : (d.notes || '-')}</div></div>
+          <div><strong>Invoice</strong><div>{editing ? (
+            <div className="invoice-detail">
+              <label className="btn-secondary btn-icon-text upload-label">
+                <input type="file" accept=".pdf,.doc,.docx,image/*" hidden onChange={handleInvoice} />
+                {Icons.upload} {d.invoice_filename ? 'Replace' : 'Upload'}
+              </label>
+              {d.invoice_filename && <button type="button" className="btn-secondary btn-icon-text" onClick={()=>openDataUrl(d.invoice_data)}>{Icons.file} View</button>}
+            </div>
+          ) : (order.invoice_filename
+            ? <button type="button" className="btn-secondary btn-icon-text" onClick={()=>openDataUrl(order.invoice_data)}>{Icons.external} View</button>
+            : '-')}</div></div>
           <div><strong>Archived</strong><div>{order.archived ? 'Yes' : 'No'}</div></div>
-          <div><strong>Description</strong><div>{order.product_description || '-'}</div></div>
-          <div><strong>Notes</strong><div>{order.notes || '-'}</div></div>
-          <div><strong>Invoice File</strong><div>{order.invoice_filename || '-'}</div></div>
-          <div><strong>Invoice</strong><div>{order.invoice_filename ? <button type="button" className="btn-secondary" onClick={()=>openDataUrl(order.invoice_data)}>Download</button> : '-'}</div></div>
         </div>
       </div>
     </div>
@@ -622,7 +728,7 @@ export default function App() {
           <NewOrderForm onCreated={loadOrders} onToast={showToast} />
         )}
         {view === 'detail' && selectedOrder && (
-          <OrderDetailPage order={selectedOrder} onClose={closeOrderDetail} />
+          <OrderDetailPage order={selectedOrder} role={role} onUpdate={updateOrder} onDelete={deleteOrder} onClose={closeOrderDetail} onToast={showToast} />
         )}
       </main>
     </div>

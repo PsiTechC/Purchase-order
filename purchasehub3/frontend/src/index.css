@@ -241,32 +241,37 @@ th, td, label, input, select, textarea, .kpi-label, .user-pill, .form-field labe
 .summary-delivered { color: var(--chip-delivered); background: var(--chip-delivered-bg) !important; border-color: var(--chip-delivered-border) !important; }
 .summary-archive { color: var(--chip-archive); background: var(--chip-archive-bg) !important; border-color: var(--chip-archive-border) !important; }
 
-.form-card { padding: 18px 20px; }
-.form-card h2 { margin-bottom: 14px; }
-.order-form { display: grid; gap: 12px; }
-.order-form .form-row { display:grid; gap: 14px; }
+.form-card { padding: 32px 36px 36px; max-width: 1040px; margin: 28px auto; }
+.form-card h2 { margin: 0 0 26px; font-size: 21px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+.order-form { display: grid; gap: 22px; }
+.order-form .form-row { display:grid; gap: 24px; }
 .form-row-main, .form-row-details, .form-row-submit { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.form-row-company-desc { grid-template-columns: 220px 130px minmax(0, 1fr); align-items: flex-start; }
-.form-row-company-desc .description-field { min-width: 0; }
-.form-row-description { grid-template-columns: 220px minmax(0, 1fr); align-items: start; }
+.form-row-full { grid-template-columns: minmax(0, 1fr); }
+.form-row-company-desc { grid-template-columns: minmax(0, 1fr) 110px minmax(0, 1.4fr); align-items: start; }
+.form-row-submit { align-items: end; }
+.quantity-field { max-width: 180px; }
 .form-field { min-width: 0; margin-bottom: 0; }
-.form-row-company-desc textarea { min-height: 84px; }
-.form-field label { display:block; font-size: 12.5px; font-weight: 700; margin-bottom: 5px; color: var(--text-muted); }
+.form-row-full textarea { min-height: 84px; }
+.form-field label { display:block; font-size: 13px; font-weight: 700; margin-bottom: 8px; color: var(--text-muted); }
 .form-field label .req { color: #ef4444; font-weight: 700; }
 .form-field input, .form-field textarea, .order-form select {
-  width: 100%; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--border);
-  background: var(--input-bg); color: var(--text); font-size: 14px;
+  width: 100%; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--input-bg); color: var(--text); font-size: 14.5px;
+  transition: border-color .15s, box-shadow .15s;
 }
-.form-field input { height: 38px; }
-.form-field textarea { min-height: 38px; resize: vertical; }
+.form-field input:focus, .form-field textarea:focus, .order-form select:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(47,123,255,.18);
+}
+.form-field input { height: 46px; }
+.form-field textarea { min-height: 46px; resize: vertical; }
 .form-field .auto-grow-textarea {
-  height: 38px; min-height: 38px; max-height: 180px; resize: none;
-  overflow: hidden; line-height: 1.35;
+  height: 46px; min-height: 46px; max-height: 180px; resize: none;
+  overflow: hidden; line-height: 1.4;
 }
 .quantity-field input { max-width: 220px; }
 .form-submit-field { display:flex; align-items:flex-end; }
-.form-submit-field .btn-primary { height: 38px; margin-top: 0; padding: 8px 12px; }
-.form-msg { margin-top: 8px; font-size: 14px; color: #16a34a; }
+.form-submit-field .btn-primary { height: 46px; margin-top: 0; padding: 8px 16px; font-size: 15px; }
+.form-msg { margin-top: 12px; font-size: 14px; color: #16a34a; font-weight: 600; }
 
 .table-wrap { overflow-x: auto; background: var(--card-bg); }
 .tracking-table {
@@ -339,6 +344,12 @@ td input, td select, td textarea {
 }
 .open-link-btn:hover { background: var(--accent); color: #fff; }
 .date-input { min-width: 0; }
+/* Native date picker icon is dark by default — invert it in dark mode so it's visible. */
+[data-theme='dark'] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.6);
+  opacity: .9;
+  cursor: pointer;
+}
 .notes-input {
   min-width: 0; min-height: 82px; max-height: 150px; resize: vertical;
   white-space: normal; line-height: 1.35; overflow: auto;
@@ -357,29 +368,44 @@ td input, td select, td textarea {
   width: 100%; max-width: 1080px; margin: 0 auto;
 }
 .detail-card {
-  padding: 26px;
+  padding: 30px 32px;
 }
 .detail-header {
-  display:flex; align-items:flex-start; justify-content:space-between; gap: 18px; margin-bottom: 22px; flex-wrap: wrap;
+  display:flex; align-items:flex-start; justify-content:space-between; gap: 18px; margin-bottom: 24px; flex-wrap: wrap;
 }
-.detail-header h2 { margin: 6px 0 0; font-size: 24px; }
+.detail-header h2 { margin: 6px 0 0; font-size: 26px; }
 .detail-grid {
-  display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px;
+  display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;
 }
 .detail-grid > div {
   border: 1px solid var(--border); border-radius: 14px; background: var(--input-bg);
-  padding: 18px; display: flex; flex-direction: column; gap: 8px;
+  padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; min-height: 84px; justify-content: center;
 }
 .detail-grid strong {
-  color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .07em;
 }
+.detail-grid div > div { font-size: 16px; min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+.detail-grid .link-cell { overflow-wrap: anywhere; word-break: break-word; }
+.btn-icon-text { display:inline-flex; align-items:center; gap: 6px; }
+.btn-icon-text svg { flex: 0 0 auto; }
+.invoice-detail { display:flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.upload-label { cursor: pointer; }
 .detail-grid div > div { color: var(--text); font-weight: 700; }
+.detail-actions { display:flex; gap: 10px; flex-wrap: wrap; }
+.detail-save { width: auto; margin-top: 0; padding: 8px 18px; }
+.detail-input {
+  width: 100%; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--card-bg); color: var(--text); font-size: 14px; font-weight: 600;
+}
+.detail-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(47,123,255,.18); }
+[data-theme='dark'] .detail-input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1) brightness(1.6); }
 .payment-paid { background: #dcfce7; color: #166534; }
 
 @media (max-width: 900px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .main-content { padding: 16px; }
-  .form-row-main, .form-row-details, .form-row-description, .form-row-submit, .form-row-company-desc { grid-template-columns: 1fr; }
+  .form-row-main, .form-row-details, .form-row-full, .form-row-company-desc, .form-row-submit { grid-template-columns: 1fr; }
+  .quantity-field { max-width: none; }
   .quantity-field input { max-width: none; }
   .table-header { flex-direction: column; padding: 18px; }
   .table-summary { justify-content: flex-start; }
