@@ -222,44 +222,44 @@ function NewOrderForm({ onCreated, onToast }) {
             <input type="url" required placeholder="https://example.com/product" value={form.product_url} onChange={e=>update('product_url', e.target.value)} />
           </div>
         </div>
-        <div className="form-row form-row-company-desc">
-          <div className="form-field">
-            <label>Company Name <span className="req">*</span></label>
-            <select required value={form.company_name} onChange={e=>update('company_name', e.target.value)}>
-              <option value="">Choose company</option>
-              <option value="Psitech">Psitech</option>
-              <option value="Eulerian Bots">Eulerian Bots</option>
-              <option value="Convis">Convis</option>
-            </select>
-          </div>
-          <div className="form-field quantity-field">
-            <label>Quantity <span className="req">*</span></label>
-            <input type="number" min="1" required value={form.quantity} onChange={e=>update('quantity', e.target.value)} />
+        <div className="form-row form-row-mid">
+          <div className="mid-left">
+            <div className="mid-left-top">
+              <div className="form-field">
+                <label>Company Name <span className="req">*</span></label>
+                <select required value={form.company_name} onChange={e=>update('company_name', e.target.value)}>
+                  <option value="">Choose company</option>
+                  <option value="Psitech">Psitech</option>
+                  <option value="Eulerian Bots">Eulerian Bots</option>
+                  <option value="Convis">Convis</option>
+                </select>
+              </div>
+              <div className="form-field quantity-field">
+                <label>Quantity <span className="req">*</span></label>
+                <input type="number" min="1" required value={form.quantity} onChange={e=>update('quantity', e.target.value)} />
+              </div>
+            </div>
+            <div className="form-field">
+              <label>Needed By Date</label>
+              <input type="date" onChange={e=>{
+                const v = e.target.value
+                if (!v) return update('needed_by_date','')
+                const [y,m,d] = v.split('-')
+                update('needed_by_date', `${d}/${m}/${y}`)
+              }} />
+            </div>
           </div>
           <div className="form-field description-field">
             <label>Product Description</label>
             <textarea
-              className="auto-grow-textarea"
-              rows="1"
+              className="tall-textarea"
               value={form.product_description}
-              onInput={e=>autoResizeTextarea(e.target)}
-              onChange={updateDescription}
+              onChange={e=>update('product_description', e.target.value)}
             />
           </div>
         </div>
-        <div className="form-row form-row-submit">
-          <div className="form-field">
-            <label>Needed By Date</label>
-            <input type="date" onChange={e=>{
-              const v = e.target.value
-              if (!v) return update('needed_by_date','')
-              const [y,m,d] = v.split('-')
-              update('needed_by_date', `${d}/${m}/${y}`)
-            }} />
-          </div>
-          <div className="form-field form-submit-field">
-            <button className="btn-primary" type="submit">Submit Order</button>
-          </div>
+        <div className="form-row form-row-full">
+          <button className="btn-primary" type="submit">Submit Order</button>
         </div>
         {msg && <div className="form-msg">{msg}</div>}
       </form>
@@ -317,9 +317,47 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
   const dateField = (field) => editing
     ? <input type="date" className="detail-input" value={dmyToInputDate(d[field])} onChange={e=>set(field, inputDateToDMY(e.target.value))} />
     : (d[field] || '-')
-  const link = (field) => editing
+  const link = (field, label = 'Open') => editing
     ? <input className="detail-input" value={d[field] || ''} placeholder="https://" onChange={e=>set(field, e.target.value)} />
-    : (d[field] ? <a className="link-cell" href={normalizeUrl(d[field])} target="_blank" rel="noreferrer">{truncateText(d[field], 60)}</a> : '-')
+    : (d[field] ? <a className="link-cell" href={normalizeUrl(d[field])} target="_blank" rel="noreferrer">{label}</a> : '-')
+  const cell = (label, node, wide) => (
+    <div className={`detail-field ${wide ? 'field-wide' : ''}`}><strong>{label}</strong><div>{node}</div></div>
+  )
+  const companyNode = editing
+    ? <select className="detail-input" value={d.company_name || ''} onChange={e=>set('company_name', e.target.value)}>
+        <option value="">Choose company</option>
+        <option value="Psitech">Psitech</option>
+        <option value="Eulerian Bots">Eulerian Bots</option>
+        <option value="Convis">Convis</option>
+      </select>
+    : (d.company_name || '-')
+  const statusNode = editing
+    ? <select className="detail-input" value={d.order_status} onChange={e=>set('order_status', e.target.value)}>
+        <option>Pending</option><option>In Process</option><option>Delivered</option>
+      </select>
+    : <span className={`detail-badge badge-${(d.order_status || '').replace(' ','-').toLowerCase()}`}>{d.order_status}</span>
+  const paymentNode = editing
+    ? <select className="detail-input" value={d.payment_status} onChange={e=>set('payment_status', e.target.value)}>
+        <option>Unpaid</option><option>Paid</option>
+      </select>
+    : <span className={`detail-badge badge-${(d.payment_status || '').toLowerCase()}`}>{d.payment_status}</span>
+  const descNode = editing
+    ? <textarea className="detail-input" rows="2" value={d.product_description || ''} onChange={e=>set('product_description', e.target.value)} />
+    : (d.product_description || '-')
+  const notesNode = editing
+    ? <textarea className="detail-input" rows="2" value={d.notes || ''} onChange={e=>set('notes', e.target.value)} />
+    : (d.notes || '-')
+  const invoiceNode = editing
+    ? <div className="invoice-detail">
+        <label className="btn-secondary btn-icon-text upload-label">
+          <input type="file" accept=".pdf,.doc,.docx,image/*" hidden onChange={handleInvoice} />
+          {Icons.upload} {d.invoice_filename ? 'Replace' : 'Upload'}
+        </label>
+        {d.invoice_filename && <button type="button" className="btn-secondary btn-icon-text" onClick={()=>openDataUrl(d.invoice_data)}>{Icons.file} View</button>}
+      </div>
+    : (order.invoice_filename
+      ? <button type="button" className="btn-secondary btn-icon-text" onClick={()=>openDataUrl(order.invoice_data)}>{Icons.external} View</button>
+      : '-')
 
   return (
     <div className="detail-page">
@@ -340,6 +378,13 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
           <div>
             <p className="section-kicker">Order Details</p>
             <h2>{order.product_name || 'Order #' + order.id}</h2>
+            {!editing && (
+              <div className="detail-badges">
+                <span className={`detail-badge badge-${(order.order_status || '').replace(' ','-').toLowerCase()}`}>{order.order_status}</span>
+                <span className={`detail-badge badge-${(order.payment_status || '').toLowerCase()}`}>{order.payment_status}</span>
+                {order.archived && <span className="detail-badge badge-archived">Archived</span>}
+              </div>
+            )}
           </div>
           <div className="detail-actions">
             {isAdmin && (editing
@@ -355,52 +400,45 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
             <button type="button" className="btn-secondary btn-icon-text" onClick={onClose}>{Icons.back} Back</button>
           </div>
         </div>
-        <div className="detail-grid">
-          <div><strong>Requester</strong><div>{txt('requester_name')}</div></div>
-          <div><strong>Company</strong><div>{editing
-            ? <select className="detail-input" value={d.company_name || ''} onChange={e=>set('company_name', e.target.value)}>
-                <option value="">Choose company</option>
-                <option value="Psitech">Psitech</option>
-                <option value="Eulerian Bots">Eulerian Bots</option>
-                <option value="Convis">Convis</option>
-              </select>
-            : (d.company_name || '-')}</div></div>
-          <div><strong>Product</strong><div>{txt('product_name')}</div></div>
-          <div><strong>Product URL</strong><div>{link('product_url')}</div></div>
-          <div><strong>Quantity</strong><div>{num('quantity')}</div></div>
-          <div><strong>Project</strong><div>{txt('project_name')}</div></div>
-          <div><strong>Tracking URL</strong><div>{link('tracking_url')}</div></div>
-          <div><strong>Status</strong><div>{editing
-            ? <select className="detail-input" value={d.order_status} onChange={e=>set('order_status', e.target.value)}>
-                <option>Pending</option><option>In Process</option><option>Delivered</option>
-              </select>
-            : d.order_status}</div></div>
-          <div><strong>Payment</strong><div>{editing
-            ? <select className="detail-input" value={d.payment_status} onChange={e=>set('payment_status', e.target.value)}>
-                <option>Unpaid</option><option>Paid</option>
-              </select>
-            : d.payment_status}</div></div>
-          <div><strong>Order Date</strong><div>{order.order_date || '-'}</div></div>
-          <div><strong>Needed By</strong><div>{dateField('needed_by_date')}</div></div>
-          <div><strong>Delivery Date</strong><div>{dateField('delivery_date')}</div></div>
-          <div><strong>Description</strong><div>{editing
-            ? <textarea className="detail-input" rows="2" value={d.product_description || ''} onChange={e=>set('product_description', e.target.value)} />
-            : (d.product_description || '-')}</div></div>
-          <div><strong>Notes</strong><div>{editing
-            ? <textarea className="detail-input" rows="2" value={d.notes || ''} onChange={e=>set('notes', e.target.value)} />
-            : (d.notes || '-')}</div></div>
-          <div><strong>Invoice</strong><div>{editing ? (
-            <div className="invoice-detail">
-              <label className="btn-secondary btn-icon-text upload-label">
-                <input type="file" accept=".pdf,.doc,.docx,image/*" hidden onChange={handleInvoice} />
-                {Icons.upload} {d.invoice_filename ? 'Replace' : 'Upload'}
-              </label>
-              {d.invoice_filename && <button type="button" className="btn-secondary btn-icon-text" onClick={()=>openDataUrl(d.invoice_data)}>{Icons.file} View</button>}
+        <div className="detail-body">
+          <section className="detail-section">
+            <h3 className="detail-section-title">Requester &amp; Project</h3>
+            <div className="detail-section-grid">
+              {cell('Requester', txt('requester_name'))}
+              {cell('Company', companyNode)}
+              {cell('Project', txt('project_name'))}
             </div>
-          ) : (order.invoice_filename
-            ? <button type="button" className="btn-secondary btn-icon-text" onClick={()=>openDataUrl(order.invoice_data)}>{Icons.external} View</button>
-            : '-')}</div></div>
-          <div><strong>Archived</strong><div>{order.archived ? 'Yes' : 'No'}</div></div>
+          </section>
+
+          <section className="detail-section">
+            <h3 className="detail-section-title">Product</h3>
+            <div className="detail-section-grid">
+              {cell('Product', txt('product_name'))}
+              {cell('Quantity', num('quantity'))}
+              {cell('Product URL', link('product_url'))}
+              {cell('Description', descNode, true)}
+            </div>
+          </section>
+
+          <section className="detail-section">
+            <h3 className="detail-section-title">Fulfillment</h3>
+            <div className="detail-section-grid">
+              {cell('Status', statusNode)}
+              {cell('Payment', paymentNode)}
+              {cell('Delivery Date', dateField('delivery_date'))}
+              {cell('Tracking URL', link('tracking_url'))}
+              {cell('Invoice', invoiceNode)}
+            </div>
+          </section>
+
+          <section className="detail-section">
+            <h3 className="detail-section-title">Timeline &amp; Notes</h3>
+            <div className="detail-section-grid">
+              {cell('Order Date', order.order_date || '-')}
+              {cell('Needed By', dateField('needed_by_date'))}
+              {cell('Notes', notesNode, true)}
+            </div>
+          </section>
         </div>
       </div>
     </div>
