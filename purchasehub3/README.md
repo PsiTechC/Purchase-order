@@ -20,7 +20,8 @@ This creates DB `purchasehub` and runs schema.sql automatically.
 
 ## 2. Run Backend (Go)
 ```bash
-cd backend go mod tidy
+cd backend
+go mod tidy
 go run main.go
 ```
 Backend runs on http://localhost:8080
@@ -33,6 +34,7 @@ npm install
 npm run dev
 ```
 Open http://localhost:5173
+During local dev, Vite proxies `/api` to `http://localhost:8080` by default.
 
 ## Production build (frontend)
 ```bash
@@ -44,3 +46,4 @@ Outputs static files to `frontend/dist` — serve with any static host/nginx.
 - Live sync: frontend polls every 3s so Employees see Admin's status/tracking updates automatically.
 - Mobile/Tablet: layout is fully responsive (CSS grid + flexbox breakpoints).
 - For a native mobile app (React Native), the same `/api` endpoints can be reused — point fetch calls to your backend's public URL.
+- If the login screen shows `Cannot reach server. Is the backend running?`, first start PostgreSQL, then start the Go backend, then retry the frontend.

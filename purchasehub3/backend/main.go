@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -38,12 +39,17 @@ type Order struct {
 	OrderDate          string `json:"order_date"`
 	NeededByDate       string `json:"needed_by_date"`
 	DeliveryDate       string `json:"delivery_date"`
+	OrderAddress       string `json:"order_address"`
 	TrackingURL        string `json:"tracking_url"`
+	CourierContact     string `json:"courier_contact"`
 	OrderStatus        string `json:"order_status"`
 	PaymentStatus      string `json:"payment_status"`
+	PaymentMode        string `json:"payment_mode"`
 	Notes              string `json:"notes"`
 	InvoiceFilename    string `json:"invoice_filename"`
 	InvoiceData        string `json:"invoice_data"`
+	InvoiceNumber      string `json:"invoice_number"`
+	InvoiceDate        string `json:"invoice_date"`
 	Archived           bool   `json:"archived"`
 }
 
@@ -150,8 +156,8 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		rows, err := db.Query(`SELECT id, requester_name, project_name, company_name, product_name, product_url, product_description, quantity,
-			to_char(order_date,'DD/MM/YYYY'), COALESCE(to_char(needed_by_date,'DD/MM/YYYY'), ''), COALESCE(to_char(delivery_date,'DD/MM/YYYY'), ''), tracking_url, order_status, payment_status, notes,
-			invoice_filename, invoice_data, archived
+			to_char(order_date,'DD/MM/YYYY'), COALESCE(to_char(needed_by_date,'DD/MM/YYYY'), ''), COALESCE(to_char(delivery_date,'DD/MM/YYYY'), ''), order_address, tracking_url, courier_contact, order_status, payment_status, payment_mode, notes,
+			invoice_filename, invoice_data, invoice_number, COALESCE(to_char(invoice_date,'DD/MM/YYYY'), ''), archived
 			FROM orders ORDER BY order_date DESC, id DESC`)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
@@ -162,8 +168,8 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 		for rows.Next() {
 			var o Order
 			if err := rows.Scan(&o.ID, &o.RequesterName, &o.ProjectName, &o.CompanyName, &o.ProductName, &o.ProductURL, &o.ProductDescription, &o.Quantity,
-				&o.OrderDate, &o.NeededByDate, &o.DeliveryDate, &o.TrackingURL, &o.OrderStatus, &o.PaymentStatus, &o.Notes,
-				&o.InvoiceFilename, &o.InvoiceData, &o.Archived); err != nil {
+				&o.OrderDate, &o.NeededByDate, &o.DeliveryDate, &o.OrderAddress, &o.TrackingURL, &o.CourierContact, &o.OrderStatus, &o.PaymentStatus, &o.PaymentMode, &o.Notes,
+				&o.InvoiceFilename, &o.InvoiceData, &o.InvoiceNumber, &o.InvoiceDate, &o.Archived); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -192,6 +198,12 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "requester_name, product_name, company_name, and product_url are required", http.StatusBadRequest)
 			return
 		}
+		o.CourierContact = strings.TrimSpace(o.CourierContact)
+		o.CourierContact = regexp.MustCompile(`\D`).ReplaceAllString(o.CourierContact, "")
+		if o.CourierContact != "" && !regexp.MustCompile(`^\d+$`).MatchString(o.CourierContact) {
+			http.Error(w, "courier_contact must contain digits only", http.StatusBadRequest)
+			return
+		}
 		if _, err := url.ParseRequestURI(o.ProductURL); err != nil {
 			http.Error(w, "product_url must be a valid URL", http.StatusBadRequest)
 			return
@@ -204,11 +216,12 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		o.PaymentMode = strings.TrimSpace(o.PaymentMode)
 		var id int
 		err := db.QueryRow(`INSERT INTO orders
-			(requester_name, project_name, company_name, product_name, product_url, product_description, quantity, needed_by_date, order_status, payment_status, notes)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'Pending','Unpaid','') RETURNING id`,
-			o.RequesterName, o.ProjectName, o.CompanyName, o.ProductName, o.ProductURL, o.ProductDescription, o.Quantity, neededBy).Scan(&id)
+			(requester_name, project_name, company_name, product_name, product_url, product_description, quantity, needed_by_date, order_address, tracking_url, courier_contact, order_status, payment_status, payment_mode, notes)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'Pending','Unpaid',$12,'') RETURNING id`,
+			o.RequesterName, o.ProjectName, o.CompanyName, o.ProductName, o.ProductURL, o.ProductDescription, o.Quantity, neededBy, o.OrderAddress, o.TrackingURL, o.CourierContact, o.PaymentMode).Scan(&id)
 		if err != nil {
 			log.Printf("create order failed: %v payload=%+v", err, o)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -245,45 +258,25 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 			ProductDescription *string `json:"product_description"`
 			Quantity           *int    `json:"quantity"`
 			NeededByDate       *string `json:"needed_by_date"`
+			OrderAddress       *string `json:"order_address"`
 			TrackingURL        *string `json:"tracking_url"`
+			CourierContact     *string `json:"courier_contact"`
 			OrderStatus        *string `json:"order_status"`
 			PaymentStatus      *string `json:"payment_status"`
+			PaymentMode        *string `json:"payment_mode"`
 			DeliveryDate       *string `json:"delivery_date"`
 			Notes              *string `json:"notes"`
 			InvoiceFilename    *string `json:"invoice_filename"`
 			InvoiceData        *string `json:"invoice_data"`
+			InvoiceNumber      *string `json:"invoice_number"`
+			InvoiceDate        *string `json:"invoice_date"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		if user.Role != "admin" {
-			if body.RequesterName != nil {
-				_, err := db.Exec(`UPDATE orders SET requester_name=$1 WHERE id=$2`, *body.RequesterName, id)
-				if err != nil { http.Error(w, err.Error(), 500); return }
-			}
-			if body.ProjectName != nil {
-				_, err := db.Exec(`UPDATE orders SET project_name=$1 WHERE id=$2`, *body.ProjectName, id)
-				if err != nil { http.Error(w, err.Error(), 500); return }
-			}
-			if body.ProductName != nil {
-				_, err := db.Exec(`UPDATE orders SET product_name=$1 WHERE id=$2`, *body.ProductName, id)
-				if err != nil { http.Error(w, err.Error(), 500); return }
-			}
-			if body.TrackingURL != nil {
-				_, err := db.Exec(`UPDATE orders SET tracking_url=$1 WHERE id=$2`, *body.TrackingURL, id)
-				if err != nil { http.Error(w, err.Error(), 500); return }
-			}
-			if body.ProductDescription != nil {
-				_, err := db.Exec(`UPDATE orders SET product_description=$1 WHERE id=$2`, *body.ProductDescription, id)
-				if err != nil { http.Error(w, err.Error(), 500); return }
-			}
-			json.NewEncoder(w).Encode(map[string]bool{"success": true})
-			return
-		}
-
-		// admin can edit everything
+		// allow admin and employee to edit orders
 		if body.RequesterName != nil {
 			db.Exec(`UPDATE orders SET requester_name=$1 WHERE id=$2`, *body.RequesterName, id)
 		}
@@ -308,14 +301,32 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 		if body.NeededByDate != nil {
 			db.Exec(`UPDATE orders SET needed_by_date=$1 WHERE id=$2`, parseDMY(*body.NeededByDate), id)
 		}
+		if body.OrderAddress != nil {
+			db.Exec(`UPDATE orders SET order_address=$1 WHERE id=$2`, *body.OrderAddress, id)
+		}
 		if body.TrackingURL != nil {
 			db.Exec(`UPDATE orders SET tracking_url=$1 WHERE id=$2`, *body.TrackingURL, id)
+		}
+		if body.CourierContact != nil {
+			cleaned := regexp.MustCompile(`\D`).ReplaceAllString(strings.TrimSpace(*body.CourierContact), "")
+			if cleaned == "" && *body.CourierContact != "" {
+				http.Error(w, "courier_contact must contain digits only", http.StatusBadRequest)
+				return
+			}
+			_, err := db.Exec(`UPDATE orders SET courier_contact=$1 WHERE id=$2`, cleaned, id)
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
 		}
 		if body.OrderStatus != nil {
 			db.Exec(`UPDATE orders SET order_status=$1 WHERE id=$2`, *body.OrderStatus, id)
 		}
 		if body.PaymentStatus != nil {
 			db.Exec(`UPDATE orders SET payment_status=$1 WHERE id=$2`, *body.PaymentStatus, id)
+		}
+		if body.PaymentMode != nil {
+			db.Exec(`UPDATE orders SET payment_mode=$1 WHERE id=$2`, *body.PaymentMode, id)
 		}
 		if body.DeliveryDate != nil {
 			db.Exec(`UPDATE orders SET delivery_date=$1 WHERE id=$2`, parseDMY(*body.DeliveryDate), id)
@@ -328,6 +339,12 @@ func ordersHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		if body.InvoiceData != nil {
 			db.Exec(`UPDATE orders SET invoice_data=$1 WHERE id=$2`, *body.InvoiceData, id)
+		}
+		if body.InvoiceNumber != nil {
+			db.Exec(`UPDATE orders SET invoice_number=$1 WHERE id=$2`, strings.TrimSpace(*body.InvoiceNumber), id)
+		}
+		if body.InvoiceDate != nil {
+			db.Exec(`UPDATE orders SET invoice_date=$1 WHERE id=$2`, parseDMY(*body.InvoiceDate), id)
 		}
 		json.NewEncoder(w).Encode(map[string]bool{"success": true})
 
@@ -384,12 +401,15 @@ func ensureSchema() error {
 		order_date DATE NOT NULL DEFAULT CURRENT_DATE,
 		needed_by_date DATE,
 		delivery_date DATE,
+		order_address TEXT DEFAULT '',
 		tracking_url TEXT DEFAULT '',
 		order_status TEXT NOT NULL DEFAULT 'Pending',
 		payment_status TEXT NOT NULL DEFAULT 'Unpaid',
 		notes TEXT DEFAULT '',
 		invoice_filename TEXT DEFAULT '',
 		invoice_data TEXT DEFAULT '',
+		invoice_number TEXT DEFAULT '',
+		invoice_date DATE,
 		archived BOOLEAN NOT NULL DEFAULT FALSE,
 		created_at TIMESTAMP NOT NULL DEFAULT NOW()
 	)`)
@@ -399,9 +419,15 @@ func ensureSchema() error {
 	migrations := []string{
 		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS project_name TEXT DEFAULT ''`,
 		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS company_name TEXT DEFAULT ''`,
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_address TEXT DEFAULT ''`,
 		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_filename TEXT DEFAULT ''`,
 		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_data TEXT DEFAULT ''`,
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_number TEXT DEFAULT ''`,
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_date DATE`,
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_mode TEXT DEFAULT ''`,
+		`ALTER TABLE orders ALTER COLUMN payment_mode SET DEFAULT ''`,
 		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_date DATE`,
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier_contact TEXT DEFAULT ''`,
 		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE`,
 	}
 	for _, q := range migrations {

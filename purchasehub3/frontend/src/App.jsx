@@ -58,6 +58,12 @@ function dmyTime(value) {
   return new Date(y, m - 1, d).getTime()
 }
 
+function toWholeNumberString(value, fallback = 0, min = 0) {
+  const parsed = Number.parseInt(value, 10)
+  if (Number.isNaN(parsed)) return String(fallback)
+  return String(Math.max(min, parsed))
+}
+
 function autoResizeTextarea(el) {
   if (!el) return
   el.style.height = '38px'
@@ -156,7 +162,7 @@ function KPICard({ label, value, active, onClick, icon }) {
 function NewOrderForm({ onCreated, onToast }) {
   const [form, setForm] = useState({
     requester_name: '', project_name: '', product_name: '', product_url: '', company_name: '',
-    product_description: '', quantity: 1, needed_by_date: ''
+    product_description: '', quantity: 1, needed_by_date: '', order_address: '', tracking_url: '', courier_contact: ''
   })
   const [msg, setMsg] = useState('')
 
@@ -172,25 +178,33 @@ function NewOrderForm({ onCreated, onToast }) {
   async function submit(e) {
     e.preventDefault()
     setMsg('')
-    const payload = { ...form, quantity: parseInt(form.quantity) || 1 }
+    const sanitizedContact = (form.courier_contact || '').replace(/\D/g, '')
+    const payload = { ...form, quantity: parseInt(form.quantity) || 1, courier_contact: sanitizedContact }
     try {
       const res = await fetch(`${API}/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: localStorage.getItem('token') },
         body: JSON.stringify({
           ...payload,
-          company_name: form.company_name
+          company_name: form.company_name,
+          order_address: form.order_address,
+          tracking_url: form.tracking_url,
+          courier_contact: sanitizedContact
         })
       })
       if (res.ok) {
         setMsg('Order created successfully.')
         onToast('Order created successfully.')
-        setForm({ requester_name:'', project_name:'', product_name:'', product_url:'', product_description:'', quantity:1, needed_by_date:'' })
+        setForm({
+          requester_name:'', project_name:'', product_name:'', product_url:'', company_name:'',
+          product_description:'', quantity:1, needed_by_date:'', order_address:'', tracking_url:'', courier_contact:''
+        })
         onCreated()
         setTimeout(()=>setMsg(''), 3000)
       } else {
-        setMsg('Failed to create order.')
-        onToast('Failed to create order.')
+        const errorText = await res.text()
+        setMsg(errorText || 'Failed to create order.')
+        onToast(errorText || 'Failed to create order.')
       }
     } catch (err) {
       setMsg('Cannot reach server.')
@@ -222,6 +236,23 @@ function NewOrderForm({ onCreated, onToast }) {
             <input type="url" required placeholder="https://example.com/product" value={form.product_url} onChange={e=>update('product_url', e.target.value)} />
           </div>
         </div>
+        <div className="form-row form-row-main">
+          <div className="form-field">
+            <label>Tracking URL</label>
+            <input type="url" placeholder="https://tracking.example.com" value={form.tracking_url} onChange={e=>update('tracking_url', e.target.value)} />
+          </div>
+          <div className="form-field">
+            <label>Courier Contact Number</label>
+            <input
+              type="tel"
+              inputMode="numeric"
+              pattern="\d*"
+              value={form.courier_contact}
+              onChange={e=>update('courier_contact', e.target.value.replace(/\D/g, ''))}
+              placeholder="Digits only"
+            />
+          </div>
+        </div>
         <div className="form-row form-row-mid">
           <div className="mid-left">
             <div className="mid-left-top">
@@ -239,14 +270,20 @@ function NewOrderForm({ onCreated, onToast }) {
                 <input type="number" min="1" required value={form.quantity} onChange={e=>update('quantity', e.target.value)} />
               </div>
             </div>
-            <div className="form-field">
-              <label>Needed By Date</label>
-              <input type="date" onChange={e=>{
-                const v = e.target.value
-                if (!v) return update('needed_by_date','')
-                const [y,m,d] = v.split('-')
-                update('needed_by_date', `${d}/${m}/${y}`)
-              }} />
+            <div className="mid-left-bottom">
+              <div className="form-field">
+                <label>Needed By Date</label>
+                <input type="date" onChange={e=>{
+                  const v = e.target.value
+                  if (!v) return update('needed_by_date','')
+                  const [y,m,d] = v.split('-')
+                  update('needed_by_date', `${d}/${m}/${y}`)
+                }} />
+              </div>
+              <div className="form-field">
+                <label>Order Address</label>
+                <input value={form.order_address} onChange={e=>update('order_address', e.target.value)} placeholder="Delivery address" />
+              </div>
             </div>
           </div>
           <div className="form-field description-field">
@@ -274,18 +311,167 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
   useEffect(() => { setDraft(order); setEditing(false) }, [order])
   if (!order) return null
   const isAdmin = role === 'admin'
+  const isDarkTheme = typeof document !== 'undefined' && document.body.getAttribute('data-theme') === 'dark'
   const d = draft || order
   function set(field, value) { setDraft(prev => ({ ...prev, [field]: value })) }
+  const dataFont = 'inherit'
+  const detailValueColor = isDarkTheme ? '#bfd5ff' : '#2147a6'
+  const detailEmptyColor = isDarkTheme ? '#d6e2ff' : '#5b6474'
+  const detailPageStyle = { width: '100%', maxWidth: '1360px', margin: '0 auto' }
+  const detailCardStyle = { padding: '10px 16px 12px' }
+  const detailKickerStyle = {
+    margin: 0,
+    fontSize: '14px',
+    fontWeight: 800,
+    textTransform: 'uppercase',
+    letterSpacing: '.12em',
+    color: isDarkTheme ? '#d8e2fb' : '#334155'
+  }
+  const detailHeaderStyle = {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1fr) auto',
+    gap: '10px 14px',
+    alignItems: 'start',
+    marginBottom: '6px'
+  }
+  const detailTitleStyle = { margin: '2px 0 0', fontSize: '36px', lineHeight: 1, letterSpacing: '-.03em' }
+  const detailBadgesStyle = { display: 'flex', gap: '7px', marginTop: '6px', flexWrap: 'wrap' }
+  const detailActionsStyle = { display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }
+  const detailBodyStyle = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+    gap: '4px 20px',
+    alignItems: 'start',
+    marginTop: '2px'
+  }
+  const detailSectionStyle = {
+    margin: 0,
+    padding: '8px 0 10px',
+    border: 'none',
+    borderBottom: '1px solid var(--border)',
+    borderRadius: 0,
+    background: 'transparent',
+    alignSelf: 'start'
+  }
+  const detailSectionLastStyle = { ...detailSectionStyle, borderBottom: 'none', paddingBottom: '0' }
+  const detailSectionFullWidthStyle = { ...detailSectionLastStyle, gridColumn: '1 / -1' }
+  const detailSectionTitleStyle = {
+    margin: '0 0 8px',
+    fontSize: '15px',
+    textTransform: 'uppercase',
+    letterSpacing: '.1em',
+    color: 'var(--accent)',
+    fontWeight: 800
+  }
+  const requesterGridStyle = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    gap: '8px 14px'
+  }
+  const productGridStyle = {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1.25fr) minmax(110px, 0.72fr) minmax(0, 0.9fr)',
+    gap: '8px 14px'
+  }
+  const fulfillmentGridStyle = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gap: '8px 14px'
+  }
+  const timelineGridStyle = {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(120px, 0.7fr) minmax(120px, 0.7fr) minmax(0, 1.6fr)',
+    gap: '8px 14px'
+  }
+  const detailFieldStyle = {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    minWidth: 0,
+    padding: '0',
+    border: 'none',
+    borderRadius: 0,
+    background: 'transparent'
+  }
+  const detailFieldWideStyle = { gridColumn: '1 / -1' }
+  const detailLabelStyle = {
+    fontFamily: dataFont,
+    fontSize: '14.25px',
+    textTransform: 'uppercase',
+    letterSpacing: '.08em',
+    color: isDarkTheme ? '#d8e2fb' : '#334155',
+    fontWeight: 800,
+    lineHeight: 1.2
+  }
+  const detailValueWrapStyle = {
+    fontSize: '13px',
+    fontWeight: 600,
+    minWidth: 0,
+    overflowWrap: 'anywhere',
+    wordBreak: 'break-word',
+    lineHeight: 1.2
+  }
+  const detailDataTextStyle = {
+    fontFamily: dataFont,
+    fontSize: '13px',
+    fontWeight: 700,
+    letterSpacing: '.01em',
+    color: detailValueColor
+  }
+  const detailInputFontStyle = {
+    fontFamily: dataFont,
+    fontSize: '13px',
+    fontWeight: 700,
+    letterSpacing: '.01em',
+    color: detailValueColor
+  }
+  const detailTextareaFontStyle = {
+    ...detailInputFontStyle,
+    minHeight: '44px',
+    lineHeight: 1.2
+  }
+  const linkValueStyle = {
+    ...detailDataTextStyle,
+    color: 'var(--accent)',
+    textDecoration: 'none'
+  }
+  const detailValueChipStyle = {
+    display: 'inline-block',
+    maxWidth: '100%',
+    padding: '5px 11px',
+    borderRadius: '999px',
+    background: isDarkTheme ? 'rgba(47,123,255,.15)' : 'rgba(47,123,255,.09)',
+    border: isDarkTheme ? '1px solid rgba(110,161,255,.34)' : '1px solid rgba(47,123,255,.2)',
+    boxShadow: isDarkTheme ? 'inset 0 0 0 1px rgba(255,255,255,.025)' : 'none',
+    lineHeight: 1.2
+  }
+  const detailEmptyChipStyle = {
+    ...detailValueChipStyle,
+    background: isDarkTheme ? 'rgba(226,230,240,.06)' : 'rgba(15,23,42,.04)',
+    border: isDarkTheme ? '1px solid rgba(226,230,240,.12)' : '1px solid rgba(148,163,184,.22)'
+  }
+  const displayText = value => (
+    <span
+      style={{
+        ...detailDataTextStyle,
+        ...(value ? detailValueChipStyle : detailEmptyChipStyle),
+        color: value ? detailValueColor : detailEmptyColor
+      }}
+    >
+      {value || '-'}
+    </span>
+  )
 
   async function save() {
     const ok = await onUpdate(order.id, {
       requester_name: d.requester_name, company_name: d.company_name,
       product_name: d.product_name, product_url: d.product_url,
       quantity: parseInt(d.quantity) || 1, project_name: d.project_name,
-      tracking_url: d.tracking_url, order_status: d.order_status,
-      payment_status: d.payment_status, delivery_date: d.delivery_date,
+      tracking_url: d.tracking_url, courier_contact: (d.courier_contact || '').replace(/\D/g, ''), order_status: d.order_status,
+      payment_status: d.payment_status, payment_mode: (d.payment_mode || '').trim(), delivery_date: d.delivery_date,
       needed_by_date: d.needed_by_date, product_description: d.product_description,
-      notes: d.notes, invoice_filename: d.invoice_filename, invoice_data: d.invoice_data
+      notes: d.notes, invoice_filename: d.invoice_filename, invoice_data: d.invoice_data,
+      invoice_number: d.invoice_number, invoice_date: d.invoice_date
     })
     onToast(ok ? 'Order updated successfully.' : 'Could not update order.')
     if (ok) setEditing(false)
@@ -309,44 +495,68 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
 
   // field renderers: show text when viewing, input when editing
   const txt = (field) => editing
-    ? <input className="detail-input" value={d[field] || ''} onChange={e=>set(field, e.target.value)} />
-    : (d[field] || '-')
+    ? <input className="detail-input" style={detailInputFontStyle} value={d[field] || ''} onChange={e=>set(field, e.target.value)} />
+    : displayText(d[field])
+  const tel = (field) => editing
+    ? <input type="tel" inputMode="numeric" pattern="\d*" className="detail-input" style={detailInputFontStyle} value={d[field] || ''} onChange={e=>set(field, e.target.value.replace(/\D/g, ''))} />
+    : displayText(d[field])
   const num = (field) => editing
-    ? <input type="number" min="1" className="detail-input" value={d[field] || 1} onChange={e=>set(field, e.target.value)} />
-    : d[field]
+    ? <input type="number" min="1" className="detail-input" style={detailInputFontStyle} value={d[field] || 1} onChange={e=>set(field, e.target.value)} />
+    : displayText(d[field])
   const dateField = (field) => editing
-    ? <input type="date" className="detail-input" value={dmyToInputDate(d[field])} onChange={e=>set(field, inputDateToDMY(e.target.value))} />
-    : (d[field] || '-')
+    ? <input type="date" className="detail-input" style={detailInputFontStyle} value={dmyToInputDate(d[field])} onChange={e=>set(field, inputDateToDMY(e.target.value))} />
+    : displayText(d[field])
   const link = (field, label = 'Open') => editing
-    ? <input className="detail-input" value={d[field] || ''} placeholder="https://" onChange={e=>set(field, e.target.value)} />
-    : (d[field] ? <a className="link-cell" href={normalizeUrl(d[field])} target="_blank" rel="noreferrer">{label}</a> : '-')
+    ? <input className="detail-input" style={detailInputFontStyle} value={d[field] || ''} placeholder="https://" onChange={e=>set(field, e.target.value)} />
+    : (d[field]
+      ? <a
+          className="link-cell"
+          style={{ ...linkValueStyle, ...detailValueChipStyle }}
+          href={normalizeUrl(d[field])}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {label}
+        </a>
+      : displayText(''))
   const cell = (label, node, wide) => (
-    <div className={`detail-field ${wide ? 'field-wide' : ''}`}><strong>{label}</strong><div>{node}</div></div>
+    <div className={`detail-field ${wide ? 'field-wide' : ''}`} style={{ ...detailFieldStyle, ...(wide ? detailFieldWideStyle : {}) }}>
+      <strong style={detailLabelStyle}>{label}</strong>
+      <div style={detailValueWrapStyle}>{node}</div>
+    </div>
   )
   const companyNode = editing
-    ? <select className="detail-input" value={d.company_name || ''} onChange={e=>set('company_name', e.target.value)}>
+    ? <select className="detail-input" style={detailInputFontStyle} value={d.company_name || ''} onChange={e=>set('company_name', e.target.value)}>
         <option value="">Choose company</option>
         <option value="Psitech">Psitech</option>
         <option value="Eulerian Bots">Eulerian Bots</option>
         <option value="Convis">Convis</option>
       </select>
-    : (d.company_name || '-')
+    : displayText(d.company_name)
   const statusNode = editing
-    ? <select className="detail-input" value={d.order_status} onChange={e=>set('order_status', e.target.value)}>
+    ? <select className="detail-input" style={detailInputFontStyle} value={d.order_status} onChange={e=>set('order_status', e.target.value)}>
         <option>Pending</option><option>In Process</option><option>Delivered</option>
       </select>
     : <span className={`detail-badge badge-${(d.order_status || '').replace(' ','-').toLowerCase()}`}>{d.order_status}</span>
   const paymentNode = editing
-    ? <select className="detail-input" value={d.payment_status} onChange={e=>set('payment_status', e.target.value)}>
+    ? <select className="detail-input" style={detailInputFontStyle} value={d.payment_status} onChange={e=>set('payment_status', e.target.value)}>
         <option>Unpaid</option><option>Paid</option>
       </select>
     : <span className={`detail-badge badge-${(d.payment_status || '').toLowerCase()}`}>{d.payment_status}</span>
+  const paymentModeNode = editing
+    ? <select className="detail-input" style={detailInputFontStyle} value={d.payment_mode || ''} onChange={e=>set('payment_mode', e.target.value)}>
+        <option value="">Not selected</option>
+        <option value="Sir">Sir</option>
+        <option value="Shreya">Shreya</option>
+        <option value="Self">Self</option>
+      </select>
+    : displayText(d.payment_mode || 'Not selected')
   const descNode = editing
-    ? <textarea className="detail-input" rows="2" value={d.product_description || ''} onChange={e=>set('product_description', e.target.value)} />
-    : (d.product_description || '-')
+    ? <textarea className="detail-input" style={detailTextareaFontStyle} rows="2" value={d.product_description || ''} onChange={e=>set('product_description', e.target.value)} />
+    : displayText(d.product_description)
   const notesNode = editing
-    ? <textarea className="detail-input" rows="2" value={d.notes || ''} onChange={e=>set('notes', e.target.value)} />
-    : (d.notes || '-')
+    ? <textarea className="detail-input" style={detailTextareaFontStyle} rows="2" value={d.notes || ''} onChange={e=>set('notes', e.target.value)} />
+    : displayText(d.notes)
   const invoiceNode = editing
     ? <div className="invoice-detail">
         <label className="btn-secondary btn-icon-text upload-label">
@@ -355,13 +565,13 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
         </label>
         {d.invoice_filename && <button type="button" className="btn-secondary btn-icon-text" onClick={()=>openDataUrl(d.invoice_data)}>{Icons.file} View</button>}
       </div>
-    : (order.invoice_filename
-      ? <button type="button" className="btn-secondary btn-icon-text" onClick={()=>openDataUrl(order.invoice_data)}>{Icons.external} View</button>
+    : (d.invoice_filename
+      ? <button type="button" className="btn-secondary btn-icon-text" onClick={()=>openDataUrl(d.invoice_data)}>{Icons.external} View</button>
       : '-')
 
   return (
-    <div className="detail-page">
-      <div className="detail-card card">
+    <div className="detail-page" style={detailPageStyle}>
+      <div className="detail-card card" style={detailCardStyle}>
         {confirmDel && (
           <div className="modal-backdrop" role="presentation">
             <div className="confirm-dialog" role="dialog" aria-modal="true">
@@ -374,20 +584,20 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
             </div>
           </div>
         )}
-        <div className="detail-header">
+        <div className="detail-header" style={detailHeaderStyle}>
           <div>
-            <p className="section-kicker">Order Details</p>
-            <h2>{order.product_name || 'Order #' + order.id}</h2>
+            <p className="section-kicker" style={detailKickerStyle}>Order Details</p>
+            <h2 style={detailTitleStyle}>{order.product_name || 'Order #' + order.id}</h2>
             {!editing && (
-              <div className="detail-badges">
+              <div className="detail-badges" style={detailBadgesStyle}>
                 <span className={`detail-badge badge-${(order.order_status || '').replace(' ','-').toLowerCase()}`}>{order.order_status}</span>
                 <span className={`detail-badge badge-${(order.payment_status || '').toLowerCase()}`}>{order.payment_status}</span>
                 {order.archived && <span className="detail-badge badge-archived">Archived</span>}
               </div>
             )}
           </div>
-          <div className="detail-actions">
-            {isAdmin && (editing
+          <div className="detail-actions" style={detailActionsStyle}>
+            {editing
               ? <>
                   <button type="button" className="btn-primary detail-save btn-icon-text" onClick={save}>{Icons.check} Save</button>
                   <button type="button" className="btn-secondary btn-icon-text" onClick={()=>{ setDraft(order); setEditing(false) }}>{Icons.close} Cancel</button>
@@ -396,23 +606,23 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
                   <button type="button" className="btn-secondary btn-icon-text" onClick={()=>setEditing(true)}>{Icons.edit} Edit</button>
                   <button type="button" className="btn-danger btn-icon-text" onClick={()=>setConfirmDel(true)}>{Icons.trash} Delete</button>
                 </>
-            )}
+            }
             <button type="button" className="btn-secondary btn-icon-text" onClick={onClose}>{Icons.back} Back</button>
           </div>
         </div>
-        <div className="detail-body">
-          <section className="detail-section">
-            <h3 className="detail-section-title">Requester &amp; Project</h3>
-            <div className="detail-section-grid">
+        <div className="detail-body" style={detailBodyStyle}>
+          <section className="detail-section" style={detailSectionStyle}>
+            <h3 className="detail-section-title" style={detailSectionTitleStyle}>Requester &amp; Project</h3>
+            <div className="detail-section-grid" style={requesterGridStyle}>
               {cell('Requester', txt('requester_name'))}
               {cell('Company', companyNode)}
               {cell('Project', txt('project_name'))}
             </div>
           </section>
 
-          <section className="detail-section">
-            <h3 className="detail-section-title">Product</h3>
-            <div className="detail-section-grid">
+          <section className="detail-section" style={detailSectionStyle}>
+            <h3 className="detail-section-title" style={detailSectionTitleStyle}>Product</h3>
+            <div className="detail-section-grid" style={productGridStyle}>
               {cell('Product', txt('product_name'))}
               {cell('Quantity', num('quantity'))}
               {cell('Product URL', link('product_url'))}
@@ -420,23 +630,27 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
             </div>
           </section>
 
-          <section className="detail-section">
-            <h3 className="detail-section-title">Fulfillment</h3>
-            <div className="detail-section-grid">
-              {cell('Status', statusNode)}
-              {cell('Payment', paymentNode)}
-              {cell('Delivery Date', dateField('delivery_date'))}
-              {cell('Tracking URL', link('tracking_url'))}
-              {cell('Invoice', invoiceNode)}
+          <section className="detail-section" style={detailSectionStyle}>
+            <h3 className="detail-section-title" style={detailSectionTitleStyle}>Timeline &amp; Notes</h3>
+            <div className="detail-section-grid" style={timelineGridStyle}>
+              {cell('Order Date', displayText(order.order_date))}
+              {cell('Needed By', dateField('needed_by_date'))}
+              {cell('Notes', notesNode, true)}
             </div>
           </section>
 
-          <section className="detail-section">
-            <h3 className="detail-section-title">Timeline &amp; Notes</h3>
-            <div className="detail-section-grid">
-              {cell('Order Date', order.order_date || '-')}
-              {cell('Needed By', dateField('needed_by_date'))}
-              {cell('Notes', notesNode, true)}
+          <section className="detail-section" style={detailSectionFullWidthStyle}>
+            <h3 className="detail-section-title" style={detailSectionTitleStyle}>Fulfillment</h3>
+            <div className="detail-section-grid" style={fulfillmentGridStyle}>
+              {cell('Status', statusNode)}
+              {cell('Payment', paymentNode)}
+              {cell('Payment Mode', paymentModeNode)}
+              {cell('Tracking URL', link('tracking_url'))}
+              {cell('Courier Contact Number', tel('courier_contact'))}
+              {cell('Delivery Date', dateField('delivery_date'))}
+              {cell('Invoice', invoiceNode)}
+              {cell('Invoice Number', txt('invoice_number'))}
+              {cell('Invoice Date', dateField('invoice_date'))}
             </div>
           </section>
         </div>
@@ -563,19 +777,32 @@ function TrackingTable({ orders, role, onUpdate, onDelete, filter, onToast, onVi
           <button type="button" className={`summary-archive ${activeFilter === 'Archive' ? 'active' : ''}`} onClick={()=>applySummaryFilter('Archive')}>{statusCounts.Archive} Archive</button>
         </div>
       </div>
-      <div className="table-wrap">        <table className="tracking-table">
+      <div className="table-wrap">
+        <table className="tracking-table">
+          <colgroup>
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '10%' }} />
+            <col style={{ width: '10%' }} />
+          </colgroup>
           <thead>
             <tr>
-              <th className="col-serial">Sr. no</th><th className="col-requester">Requester</th><th className="col-company">Company Name</th><th className="col-product">Product Name</th><th className="col-url">Product URL</th><th className="col-qty">Qty</th>
-              <th className="col-project">Project Name</th><th className="col-tracking">Tracking URL</th><th className="col-actions">View</th>
+              <th className="col-serial">Sr. no</th><th className="col-date">Order Date</th><th className="col-requester">Requester</th><th className="col-product">Product Name</th><th className="col-url">Product URL</th><th className="col-qty">Qty</th>
+              <th className="col-project">Project Name</th><th className="col-tracking">Tracking URL</th><th className="col-company">Company Name</th><th className="col-actions">View</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((o, idx) => (
               <tr key={o.id}>
                 <td className="serial-cell">{idx + 1}</td>
+                <td>{o.order_date || '-'}</td>
                 <td>{o.requester_name || '-'}</td>
-                <td>{o.company_name || '-'}</td>
                 <td>{o.product_name || '-'}</td>
                 <td>
                   {o.product_url
@@ -589,6 +816,7 @@ function TrackingTable({ orders, role, onUpdate, onDelete, filter, onToast, onVi
                     ? <a className="table-link" href={normalizeUrl(o.tracking_url)} target="_blank" rel="noreferrer">Track</a>
                     : <span className="muted">-</span>}
                 </td>
+                <td>{o.company_name || '-'}</td>
                 <td>
                   <button type="button" className="btn-secondary view-btn" onClick={()=>onView(o)}>View</button>
                 </td>
@@ -613,15 +841,77 @@ export default function App() {
   })
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light')
   const [orders, setOrders] = useState([])
-  const [view, setView] = useState('dashboard') // dashboard | newOrder | detail
+  const [view, setView] = useState('dashboard') // dashboard | newOrder | detail | componentList
   const [kpiFilter, setKpiFilter] = useState(null)
   const [toast, setToast] = useState('')
   const [selectedOrder, setSelectedOrder] = useState(null)
+  const [componentList, setComponentList] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('componentList') || '[]').map(item => {
+        const { prize, qty_in_use: qtyInUseLegacy, editing, ...rest } = item
+        const quantity = toWholeNumberString(item.quantity, 1, 1)
+        const status = item.status || 'Available'
+        return {
+          ...rest,
+          status,
+          price: item.price ?? prize ?? '',
+          quantity,
+          qtyInUse: status === 'In Use'
+            ? toWholeNumberString(item.qtyInUse ?? qtyInUseLegacy, quantity, 0)
+            : '0',
+          owner: status === 'In Use' ? item.owner || '' : ''
+        }
+      })
+    } catch (err) {
+      return []
+    }
+  })
+  const [removedComponentIds, setRemovedComponentIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('removedComponentIds') || '[]') } catch (err) { return [] }
+  })
+  const [componentSearch, setComponentSearch] = useState('')
+  const [componentArchiveTarget, setComponentArchiveTarget] = useState(null)
 
   useEffect(() => {
     document.body.setAttribute('data-theme', theme)
     localStorage.setItem('theme', theme)
   }, [theme])
+
+  useEffect(() => {
+    localStorage.setItem('componentList', JSON.stringify(componentList))
+  }, [componentList])
+
+  useEffect(() => {
+    localStorage.setItem('removedComponentIds', JSON.stringify(removedComponentIds))
+  }, [removedComponentIds])
+
+  useEffect(() => {
+    const delivered = orders.filter(o => o.order_status === 'Delivered' && !o.archived && !removedComponentIds.includes(o.id))
+    setComponentList(prev => {
+      const existing = new Map(prev.map(item => [item.orderId, item]))
+      return delivered.map(o => {
+        const saved = existing.get(o.id)
+        const quantity = toWholeNumberString(saved?.quantity ?? o.quantity, o.quantity || 1, 1)
+        const status = saved?.status || 'Available'
+        return {
+          id: saved?.id || `comp-${o.id}`,
+          orderId: o.id,
+          component: o.product_name || 'Unknown Product',
+          quantity,
+          price: saved?.price ?? saved?.prize ?? '',
+          location: saved?.location || 'Mumbai Office',
+          customLocation: saved?.customLocation || '',
+          status,
+          qtyInUse: status === 'In Use'
+            ? toWholeNumberString(saved?.qtyInUse ?? saved?.qty_in_use, quantity, 0)
+            : '0',
+          owner: status === 'In Use' ? saved?.owner || '' : '',
+          invoice_filename: o.invoice_filename || saved?.invoice_filename || '',
+          invoice_data: o.invoice_data || saved?.invoice_data || ''
+        }
+      })
+    })
+  }, [orders, removedComponentIds])
 
   const loadOrders = useCallback(async () => {
     if (!user) return
@@ -706,6 +996,115 @@ export default function App() {
     showToast('Opening new order form.')
   }
 
+  function showComponentList() {
+    setSelectedOrder(null)
+    setView('componentList')
+    showToast('Opening component list.')
+  }
+
+  function updateComponentField(orderId, field, value) {
+    setComponentList(prev => prev.map(item => {
+      if (item.orderId !== orderId) return item
+      if (field === 'status') {
+        if (value === 'Available') {
+          return { ...item, status: value, owner: '', qtyInUse: '0' }
+        }
+        return {
+          ...item,
+          status: value,
+          qtyInUse: Number.parseInt(item.qtyInUse, 10) > 0 ? item.qtyInUse : toWholeNumberString(item.quantity, 1, 1)
+        }
+      }
+      if (field === 'qtyInUse') {
+        const sanitized = value.replace(/\D/g, '')
+        if (!sanitized) return { ...item, qtyInUse: '' }
+        const maxQty = Number.parseInt(item.quantity, 10) || 0
+        return { ...item, qtyInUse: String(Math.min(Number.parseInt(sanitized, 10), maxQty)) }
+      }
+      return { ...item, [field]: value }
+    }))
+  }
+
+  async function archiveComponentItem() {
+    if (!componentArchiveTarget) return
+    const ok = await deleteOrder(componentArchiveTarget.orderId)
+    showToast(ok ? `${componentArchiveTarget.component || 'Component'} moved to archive.` : 'Could not move component to archive.')
+    setComponentArchiveTarget(null)
+  }
+
+  function componentValidation(item) {
+    const quantity = Number.parseInt(item.quantity, 10)
+    const qtyInUse = Number.parseInt(item.qtyInUse, 10) || 0
+    if (!Number.isFinite(quantity) || quantity < 1) {
+      return 'Please enter a valid qty.'
+    }
+    if (item.location === 'Other' && !item.customLocation.trim()) {
+      return 'Please enter the other location name.'
+    }
+    if (qtyInUse > quantity) {
+      return 'Qty in use cannot be greater than total qty.'
+    }
+    if (item.status === 'In Use' && qtyInUse < 1) {
+      return 'Please enter qty in use when status is In Use.'
+    }
+    if (item.status === 'In Use' && !item.owner.trim()) {
+      return 'Please enter the owner name when status is In Use.'
+    }
+    return ''
+  }
+
+  function saveComponentItem(orderId) {
+    const current = componentList.find(item => item.orderId === orderId)
+    if (!current) return
+    const error = componentValidation(current)
+    if (error) {
+      showToast(error)
+      return
+    }
+    setComponentList(prev => prev.map(item => {
+      if (item.orderId !== orderId) return item
+      const quantity = toWholeNumberString(item.quantity, 1, 1)
+      return {
+        ...item,
+        price: item.price.trim(),
+        quantity,
+        qtyInUse: item.status === 'In Use' ? toWholeNumberString(item.qtyInUse, quantity, 0) : '0',
+        owner: item.status === 'In Use' ? item.owner.trim() : '',
+        customLocation: item.location === 'Other' ? item.customLocation.trim() : ''
+      }
+    }))
+    showToast(`${current.component || 'Component'} saved.`)
+  }
+
+  function downloadInvoice(item) {
+    if (!item.invoice_data || !item.invoice_filename) return
+    const link = document.createElement('a')
+    link.href = item.invoice_data
+    link.download = item.invoice_filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  function downloadAllInvoices() {
+    componentList.forEach(item => {
+      if (item.invoice_data && item.invoice_filename) {
+        downloadInvoice(item)
+      }
+    })
+    if (!componentList.some(item => item.invoice_data && item.invoice_filename)) {
+      showToast('No invoices available to download.')
+    }
+  }
+
+  const filteredComponentList = componentList.filter(item => {
+    const query = componentSearch.trim().toLowerCase()
+    if (!query) return true
+    return [item.component, item.quantity, item.price, item.location, item.customLocation, item.status, item.qtyInUse, item.owner]
+      .filter(Boolean)
+      .some(value => value.toString().toLowerCase().includes(query))
+  })
+
   function showDashboard() {
     setSelectedOrder(null)
     setView('dashboard')
@@ -741,6 +1140,9 @@ export default function App() {
           })} title="Toggle theme" aria-label="Toggle theme">
             {theme === 'dark' ? Icons.sun : Icons.moon}
           </button>
+          {view !== 'componentList' && (
+            <button className="btn-secondary" onClick={showComponentList}>Component List</button>
+          )}
           {view === 'dashboard' ? (
             <button className="btn-secondary" onClick={showNewOrder}>New Order</button>
           ) : (
@@ -767,6 +1169,173 @@ export default function App() {
         )}
         {view === 'detail' && selectedOrder && (
           <OrderDetailPage order={selectedOrder} role={role} onUpdate={updateOrder} onDelete={deleteOrder} onClose={closeOrderDetail} onToast={showToast} />
+        )}
+        {view === 'componentList' && (
+          <div className="card component-card">
+            {componentArchiveTarget && (
+              <div className="modal-backdrop" role="presentation">
+                <div className="confirm-dialog" role="dialog" aria-modal="true">
+                  <h3>Delete Component?</h3>
+                  <p>Are you sure you want to move <strong>{componentArchiveTarget.component}</strong> to Archive?</p>
+                  <div className="confirm-actions">
+                    <button type="button" className="btn-ghost" onClick={() => setComponentArchiveTarget(null)}>Cancel</button>
+                    <button type="button" className="btn-danger" onClick={archiveComponentItem}>Move to Archive</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="table-header">
+              <div>
+                <h2>Component List</h2>
+              </div>
+              <div className="detail-actions">
+                <button className="btn-secondary" type="button" onClick={downloadAllInvoices}>Download All Invoices</button>
+              </div>
+            </div>
+            <div className="component-toolbar">
+              <input
+                className="component-search"
+                value={componentSearch}
+                onChange={e => setComponentSearch(e.target.value)}
+                placeholder="Search components..."
+              />
+            </div>
+            <div className="table-wrap">
+              <table className="tracking-table component-table">
+                <colgroup>
+                  <col style={{ width: '17%' }} />
+                  <col style={{ width: '8%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '16%' }} />
+                  <col style={{ width: '11%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '12%' }} />
+                  <col style={{ width: '9%' }} />
+                  <col style={{ width: '7%' }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>Component</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                    <th>Location</th>
+                    <th>Status</th>
+                    <th>Qty In Use</th>
+                    <th>Owner</th>
+                    <th>Invoice</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredComponentList.map(item => {
+                    const error = componentValidation(item)
+                    return (
+                      <tr key={item.orderId}>
+                        <td>{item.component || '-'}</td>
+                        <td>
+                          <span className="qty-pill component-qty-pill">{item.quantity}</span>
+                        </td>
+                        <td>
+                          <input
+                            value={item.price}
+                            onChange={e => updateComponentField(item.orderId, 'price', e.target.value)}
+                            placeholder="Price"
+                          />
+                        </td>
+                        <td>
+                          <select
+                            value={item.location}
+                            onChange={e => updateComponentField(item.orderId, 'location', e.target.value)}
+                          >
+                            <option>Mumbai Office</option>
+                            <option>Delhi Office</option>
+                            <option>Wesse Office</option>
+                            <option>Other</option>
+                          </select>
+                          {item.location === 'Other' && (
+                            <input
+                              className="nested-input"
+                              value={item.customLocation}
+                              onChange={e => updateComponentField(item.orderId, 'customLocation', e.target.value)}
+                              placeholder="Specify location"
+                            />
+                          )}
+                        </td>
+                        <td>
+                          <select
+                            value={item.status}
+                            onChange={e => updateComponentField(item.orderId, 'status', e.target.value)}
+                          >
+                            <option>Available</option>
+                            <option>In Use</option>
+                          </select>
+                        </td>
+                        <td>
+                          {item.status === 'In Use' ? (
+                            <input
+                              type="number"
+                              min="1"
+                              max={Number.parseInt(item.quantity, 10) || 0}
+                              className="qty-input"
+                              value={item.qtyInUse}
+                              onChange={e => updateComponentField(item.orderId, 'qtyInUse', e.target.value)}
+                              placeholder="In use"
+                            />
+                          ) : (
+                            <span className="qty-pill component-qty-pill">0</span>
+                          )}
+                        </td>
+                        <td>
+                          {item.status === 'In Use'
+                            ? <input
+                                value={item.owner}
+                                onChange={e => updateComponentField(item.orderId, 'owner', e.target.value)}
+                                placeholder="Owner name"
+                              />
+                            : <span className="muted">-</span>}
+                        </td>
+                        <td>
+                          {item.invoice_data && item.invoice_filename ? (
+                            <button type="button" className="btn-secondary component-invoice-btn" onClick={() => downloadInvoice(item)}>
+                              Download
+                            </button>
+                          ) : (
+                            <span className="muted">No invoice</span>
+                          )}
+                        </td>
+                        <td className="action-cell">
+                          <div className="row-actions component-actions">
+                            <button
+                              type="button"
+                              className="icon-btn save-btn"
+                              onClick={() => saveComponentItem(item.orderId)}
+                              title="Save row"
+                              aria-label={`Save ${item.component || 'component'}`}
+                            >
+                              {Icons.save}
+                            </button>
+                            <button
+                              type="button"
+                              className="icon-btn delete-btn"
+                              onClick={() => setComponentArchiveTarget(item)}
+                              title="Delete row"
+                              aria-label={`Delete ${item.component || 'component'}`}
+                            >
+                              {Icons.trash}
+                            </button>
+                          </div>
+                          {error && <div className="row-error">{error}</div>}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {filteredComponentList.length === 0 && (
+                    <tr><td colSpan="9" className="empty-row">No delivered components available yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
       </main>
     </div>

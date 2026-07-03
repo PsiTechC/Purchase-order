@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS orders (
     order_date DATE NOT NULL DEFAULT CURRENT_DATE,
     needed_by_date DATE,
     delivery_date DATE,
+    order_address TEXT DEFAULT '',
     tracking_url TEXT DEFAULT '',
     order_status TEXT NOT NULL DEFAULT 'Pending',
     payment_status TEXT NOT NULL DEFAULT 'Unpaid',
@@ -25,4 +26,5 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_data TEXT DEFAULT '';
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_date DATE;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS project_name TEXT DEFAULT '';
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS company_name TEXT DEFAULT '';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_address TEXT DEFAULT '';
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE;
