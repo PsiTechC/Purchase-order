@@ -254,36 +254,19 @@ function NewOrderForm({ onCreated, onToast }) {
           </div>
         </div>
         <div className="form-row form-row-mid">
-          <div className="mid-left">
-            <div className="mid-left-top">
-              <div className="form-field">
-                <label>Company Name <span className="req">*</span></label>
-                <select required value={form.company_name} onChange={e=>update('company_name', e.target.value)}>
-                  <option value="">Choose company</option>
-                  <option value="Psitech">Psitech</option>
-                  <option value="Eulerian Bots">Eulerian Bots</option>
-                  <option value="Convis">Convis</option>
-                </select>
-              </div>
-              <div className="form-field quantity-field">
-                <label>Quantity <span className="req">*</span></label>
-                <input type="number" min="1" required value={form.quantity} onChange={e=>update('quantity', e.target.value)} />
-              </div>
+          <div className="mid-left-top">
+            <div className="form-field">
+              <label>Company Name <span className="req">*</span></label>
+              <select required value={form.company_name} onChange={e=>update('company_name', e.target.value)}>
+                <option value="">Choose company</option>
+                <option value="Psitech">Psitech</option>
+                <option value="Eulerian Bots">Eulerian Bots</option>
+                <option value="Convis">Convis</option>
+              </select>
             </div>
-            <div className="mid-left-bottom">
-              <div className="form-field">
-                <label>Needed By Date</label>
-                <input type="date" onChange={e=>{
-                  const v = e.target.value
-                  if (!v) return update('needed_by_date','')
-                  const [y,m,d] = v.split('-')
-                  update('needed_by_date', `${d}/${m}/${y}`)
-                }} />
-              </div>
-              <div className="form-field">
-                <label>Order Address</label>
-                <input value={form.order_address} onChange={e=>update('order_address', e.target.value)} placeholder="Delivery address" />
-              </div>
+            <div className="form-field quantity-field">
+              <label>Quantity <span className="req">*</span></label>
+              <input type="number" min="1" required value={form.quantity} onChange={e=>update('quantity', e.target.value)} />
             </div>
           </div>
           <div className="form-field description-field">
@@ -293,6 +276,21 @@ function NewOrderForm({ onCreated, onToast }) {
               value={form.product_description}
               onChange={e=>update('product_description', e.target.value)}
             />
+          </div>
+        </div>
+        <div className="form-row form-row-main">
+          <div className="form-field">
+            <label>Needed By Date</label>
+            <input type="date" onChange={e=>{
+              const v = e.target.value
+              if (!v) return update('needed_by_date','')
+              const [y,m,d] = v.split('-')
+              update('needed_by_date', `${d}/${m}/${y}`)
+            }} />
+          </div>
+          <div className="form-field">
+            <label>Order Address</label>
+            <input value={form.order_address} onChange={e=>update('order_address', e.target.value)} placeholder="Delivery address" />
           </div>
         </div>
         <div className="form-row form-row-full">
@@ -315,17 +313,17 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
   const d = draft || order
   function set(field, value) { setDraft(prev => ({ ...prev, [field]: value })) }
   const dataFont = 'inherit'
-  const detailValueColor = isDarkTheme ? '#bfd5ff' : '#2147a6'
-  const detailEmptyColor = isDarkTheme ? '#d6e2ff' : '#5b6474'
+  const detailValueColor = 'var(--text)'
+  const detailEmptyColor = 'var(--text-muted)'
   const detailPageStyle = { width: '100%', maxWidth: '1360px', margin: '0 auto' }
   const detailCardStyle = { padding: '10px 16px 12px' }
   const detailKickerStyle = {
     margin: 0,
-    fontSize: '14px',
-    fontWeight: 800,
+    fontSize: '11px',
+    fontWeight: 700,
     textTransform: 'uppercase',
-    letterSpacing: '.12em',
-    color: isDarkTheme ? '#d8e2fb' : '#334155'
+    letterSpacing: '.14em',
+    color: 'var(--text-muted)'
   }
   const detailHeaderStyle = {
     display: 'grid',
@@ -334,19 +332,19 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
     alignItems: 'start',
     marginBottom: '6px'
   }
-  const detailTitleStyle = { margin: '2px 0 0', fontSize: '36px', lineHeight: 1, letterSpacing: '-.03em' }
-  const detailBadgesStyle = { display: 'flex', gap: '7px', marginTop: '6px', flexWrap: 'wrap' }
+  const detailTitleStyle = { margin: '4px 0 0', fontSize: '25px', lineHeight: 1.15, letterSpacing: '-.02em', fontWeight: 800 }
+  const detailBadgesStyle = { display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }
   const detailActionsStyle = { display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }
   const detailBodyStyle = {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-    gap: '4px 20px',
+    gridTemplateColumns: '1fr',
+    gap: '0',
     alignItems: 'start',
-    marginTop: '2px'
+    marginTop: '8px'
   }
   const detailSectionStyle = {
     margin: 0,
-    padding: '8px 0 10px',
+    padding: '13px 0',
     border: 'none',
     borderBottom: '1px solid var(--border)',
     borderRadius: 0,
@@ -356,37 +354,32 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
   const detailSectionLastStyle = { ...detailSectionStyle, borderBottom: 'none', paddingBottom: '0' }
   const detailSectionFullWidthStyle = { ...detailSectionLastStyle, gridColumn: '1 / -1' }
   const detailSectionTitleStyle = {
-    margin: '0 0 8px',
-    fontSize: '15px',
+    display: 'inline-block',
+    margin: '0 0 14px',
+    padding: '7px 22px',
+    borderRadius: '999px',
+    border: `1px solid ${isDarkTheme ? 'rgba(147,180,232,.45)' : 'rgba(30,58,138,.35)'}`,
+    background: isDarkTheme ? 'rgba(147,180,232,.14)' : 'rgba(30,58,138,.07)',
+    fontSize: '14px',
     textTransform: 'uppercase',
-    letterSpacing: '.1em',
-    color: 'var(--accent)',
+    letterSpacing: '.09em',
+    color: isDarkTheme ? '#93b4e8' : '#1e3a8a',
     fontWeight: 800
   }
-  const requesterGridStyle = {
+  const uniformGridStyle = {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: '8px 14px'
+    gap: '14px 20px'
   }
-  const productGridStyle = {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1.25fr) minmax(110px, 0.72fr) minmax(0, 0.9fr)',
-    gap: '8px 14px'
-  }
-  const fulfillmentGridStyle = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-    gap: '8px 14px'
-  }
-  const timelineGridStyle = {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(120px, 0.7fr) minmax(120px, 0.7fr) minmax(0, 1.6fr)',
-    gap: '8px 14px'
-  }
+  const requesterGridStyle = { ...uniformGridStyle, gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }
+  const productGridStyle = { ...uniformGridStyle, gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }
+  const fulfillmentGridStyle = { ...uniformGridStyle, gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }
+  const timelineGridStyle = uniformGridStyle
   const detailFieldStyle = {
     display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: '7px',
     minWidth: 0,
     padding: '0',
     border: 'none',
@@ -396,26 +389,29 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
   const detailFieldWideStyle = { gridColumn: '1 / -1' }
   const detailLabelStyle = {
     fontFamily: dataFont,
-    fontSize: '14.25px',
+    fontSize: '11px',
     textTransform: 'uppercase',
-    letterSpacing: '.08em',
-    color: isDarkTheme ? '#d8e2fb' : '#334155',
-    fontWeight: 800,
-    lineHeight: 1.2
+    letterSpacing: '.07em',
+    color: isDarkTheme ? '#8fb2ff' : '#3767c9',
+    fontWeight: 700,
+    lineHeight: 1.2,
+    whiteSpace: 'nowrap',
+    flexShrink: 0
   }
   const detailValueWrapStyle = {
-    fontSize: '13px',
-    fontWeight: 600,
+    fontSize: '14px',
+    fontWeight: 700,
     minWidth: 0,
-    overflowWrap: 'anywhere',
-    wordBreak: 'break-word',
-    lineHeight: 1.2
+    flex: 1,
+    overflowWrap: 'break-word',
+    wordBreak: 'normal',
+    lineHeight: 1.25
   }
   const detailDataTextStyle = {
     fontFamily: dataFont,
-    fontSize: '13px',
+    fontSize: '14px',
     fontWeight: 700,
-    letterSpacing: '.01em',
+    letterSpacing: '.005em',
     color: detailValueColor
   }
   const detailInputFontStyle = {
@@ -454,11 +450,11 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
     <span
       style={{
         ...detailDataTextStyle,
-        ...(value ? detailValueChipStyle : detailEmptyChipStyle),
-        color: value ? detailValueColor : detailEmptyColor
+        color: value ? detailValueColor : detailEmptyColor,
+        fontWeight: value ? 700 : 600
       }}
     >
-      {value || '-'}
+      {value || 'NA'}
     </span>
   )
 
@@ -511,7 +507,7 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
     : (d[field]
       ? <a
           className="link-cell"
-          style={{ ...linkValueStyle, ...detailValueChipStyle }}
+          style={linkValueStyle}
           href={normalizeUrl(d[field])}
           target="_blank"
           rel="noreferrer"
@@ -521,7 +517,7 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
       : displayText(''))
   const cell = (label, node, wide) => (
     <div className={`detail-field ${wide ? 'field-wide' : ''}`} style={{ ...detailFieldStyle, ...(wide ? detailFieldWideStyle : {}) }}>
-      <strong style={detailLabelStyle}>{label}</strong>
+      <strong style={detailLabelStyle}>{label}:</strong>
       <div style={detailValueWrapStyle}>{node}</div>
     </div>
   )
@@ -567,7 +563,7 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
       </div>
     : (d.invoice_filename
       ? <button type="button" className="btn-secondary btn-icon-text" onClick={()=>openDataUrl(d.invoice_data)}>{Icons.external} View</button>
-      : '-')
+      : displayText(''))
 
   return (
     <div className="detail-page" style={detailPageStyle}>
@@ -588,13 +584,6 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
           <div>
             <p className="section-kicker" style={detailKickerStyle}>Order Details</p>
             <h2 style={detailTitleStyle}>{order.product_name || 'Order #' + order.id}</h2>
-            {!editing && (
-              <div className="detail-badges" style={detailBadgesStyle}>
-                <span className={`detail-badge badge-${(order.order_status || '').replace(' ','-').toLowerCase()}`}>{order.order_status}</span>
-                <span className={`detail-badge badge-${(order.payment_status || '').toLowerCase()}`}>{order.payment_status}</span>
-                {order.archived && <span className="detail-badge badge-archived">Archived</span>}
-              </div>
-            )}
           </div>
           <div className="detail-actions" style={detailActionsStyle}>
             {editing
@@ -617,6 +606,7 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
               {cell('Requester', txt('requester_name'))}
               {cell('Company', companyNode)}
               {cell('Project', txt('project_name'))}
+              {cell('Order Date', displayText(order.order_date))}
             </div>
           </section>
 
@@ -625,17 +615,9 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
             <div className="detail-section-grid" style={productGridStyle}>
               {cell('Product', txt('product_name'))}
               {cell('Quantity', num('quantity'))}
-              {cell('Product URL', link('product_url'))}
-              {cell('Description', descNode, true)}
-            </div>
-          </section>
-
-          <section className="detail-section" style={detailSectionStyle}>
-            <h3 className="detail-section-title" style={detailSectionTitleStyle}>Timeline &amp; Notes</h3>
-            <div className="detail-section-grid" style={timelineGridStyle}>
-              {cell('Order Date', displayText(order.order_date))}
               {cell('Needed By', dateField('needed_by_date'))}
-              {cell('Notes', notesNode, true)}
+              {cell('Description', descNode)}
+              {cell('Product URL', link('product_url'))}
             </div>
           </section>
 
@@ -646,11 +628,12 @@ function OrderDetailPage({ order, role, onUpdate, onDelete, onClose, onToast }) 
               {cell('Payment', paymentNode)}
               {cell('Payment Mode', paymentModeNode)}
               {cell('Tracking URL', link('tracking_url'))}
-              {cell('Courier Contact Number', tel('courier_contact'))}
+              {cell('Courier No.', tel('courier_contact'))}
               {cell('Delivery Date', dateField('delivery_date'))}
               {cell('Invoice', invoiceNode)}
               {cell('Invoice Number', txt('invoice_number'))}
               {cell('Invoice Date', dateField('invoice_date'))}
+              {cell('Notes', notesNode)}
             </div>
           </section>
         </div>

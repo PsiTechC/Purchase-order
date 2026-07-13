@@ -248,12 +248,10 @@ th, td, label, input, select, textarea, .kpi-label, .user-pill, .form-field labe
 .form-row-main, .form-row-details, .form-row-submit { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .form-row-full { grid-template-columns: minmax(0, 1fr); }
 .form-row-company-desc { grid-template-columns: minmax(0, 1fr) 110px minmax(0, 1.4fr); align-items: start; }
-.form-row-mid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); align-items: stretch; }
-.mid-left { display:flex; flex-direction: column; gap: 18px; }
-.mid-left-top { display:grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 18px; }
-.mid-left-bottom { display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.form-row-mid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+.mid-left-top { display:grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 18px; align-content: start; }
 .form-row-mid .description-field { display:flex; flex-direction: column; }
-.form-row-mid .tall-textarea { flex: 1; min-height: 72px; resize: vertical; line-height: 1.35; }
+.form-row-mid .tall-textarea { height: 46px; min-height: 46px; resize: vertical; line-height: 1.4; }
 .form-row-submit { align-items: end; }
 .quantity-field { max-width: 180px; }
 .form-field { min-width: 0; margin-bottom: 0; }
